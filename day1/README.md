@@ -18,6 +18,19 @@
 
 虽然不同GPU型号在具体参数上有所差异，但CUDA编程的基本概念和API是一致的。
 
+## 📁 相关文件快速链接
+本教程包含以下相关程序文件，点击即可查看：
+
+### 🚀 示例程序
+- [`vector_add.cu`](vector_add.cu) - 向量加法CUDA kernel示例
+- [`run_cubin.cpp`](run_cubin.cpp) - CUBIN文件运行程序
+
+### 🔍 GPU信息获取工具
+- [`gpu_info.py`](gpu_info.py) - Python版本GPU信息获取（推荐）
+- [`gpu_info.cu`](gpu_info.cu) - CUDA版本完整硬件信息
+- [`gpu_info_cpp.cpp`](gpu_info_cpp.cpp) - C++版本系统信息检查
+- [`GPU_CONFIG_SUMMARY.md`](GPU_CONFIG_SUMMARY.md) - RTX 4090配置总结
+
 ## GPU硬件基础
 
 ### GPU vs CPU架构差异
@@ -32,7 +45,12 @@ GPU（图形处理器）则采用并行执行架构，配备大量相对简单�
 
 现代GPU采用分层架构设计，从宏观到微观可以分为三个主要层次。最上层是GPU设备整体，包含多个流式多处理器（Streaming Multiprocessor, SM），这些SM是GPU的核心计算单元，每个SM都具备独立的指令调度和执行能力。在SM层之下是共享的L2缓存，为所有SM提供统一的数据缓存服务。最底层是全局内存，通常采用HBM（High Bandwidth Memory）或GDDR技术，为整个GPU提供大容量、高带宽的存储空间。
 
-每个SM内部采用细粒度的并行设计。在SM的顶层，多个Warp（每个Warp包含32个线程）并行执行，这些Warp共享SM的计算资源。Warp是GPU调度的基本单位，采用SIMT（Single Instruction, Multiple Thread）执行模型，即同一Warp内的所有线程执行相同的指令，但处理不同的数据。在Warp层之下，SM配备了三种关键的内存资源：寄存器文件（Register File）、共享内存（Shared Memory）和L1缓存。寄存器文件为每个线程提供最快的存储访问，共享内存支持线程块内的数据交换和协作，L1缓存则提供额外的数据缓存层。在SM的最底层，配置了各种专用功能单元，包括FP32、FP64浮点运算单元、整数运算单元以及Tensor Core等专用加速器。
+每个SM内部采用细粒度的并行设计。在SM的顶层，多个Warp并行执行，这些Warp共享SM的计算资源。
+
+> **Warp概念详解**：
+Warp是GPU调度的基本单位，每个Warp包含32个线程。Warp采用SIMT（Single Instruction, Multiple Thread）执行模型，即同一Warp内的所有线程执行相同的指令，但处理不同的数据。这种设计使得GPU能够高效地利用数据并行性，当多个线程需要执行相同操作时，只需要一条指令就能控制32个线程同时执行。**🎯重要说明**: Warp大小32是NVIDIA GPU架构的固定设计，从最早的Tesla架构到最新的Blackwell架构都保持不变。32这个数字是经过精心设计以便能够充分利用GPU的SIMT执行单元.
+
+在Warp层之下，SM配备了三种关键的内存资源：寄存器文件（Register File）、共享内存（Shared Memory）和L1缓存。寄存器文件为每个线程提供最快的存储访问，共享内存支持线程块内的数据交换和协作，L1缓存则提供额外的数据缓存层。在SM的最底层，配置了各种专用功能单元，包括FP32、FP64浮点运算单元、整数运算单元以及Tensor Core等专用加速器。
 
 GPU的内存系统采用层次化设计，从访问速度最快到最慢依次为：寄存器、共享内存、本地内存、常量内存、纹理内存和全局内存。寄存器是每个线程私有的存储空间，访问延迟仅需1个时钟周期，但容量有限，每个线程最多只能使用255个32位寄存器。共享内存是线程块内共享的存储空间，访问延迟为1-2个时钟周期，容量为每个线程块48KB，适合存储频繁访问的中间结果和实现线程间协作。本地内存虽然名义上是线程私有，但实际存储在全局内存中，访问延迟较高（200-800个时钟周期），主要用于存储大型数组和寄存器溢出的数据。常量内存具有缓存机制，适合存储kernel参数和查找表，当多个线程访问相同地址时性能最佳。纹理内存针对2D/3D空间局部性访问进行了优化，适合图像处理和科学计算应用。全局内存容量最大但访问延迟最高，是所有线程共享的主要存储空间，其性能很大程度上依赖于内存访问模式，合并访问（Coalesced Access）可以显著提高内存带宽利用率。
 
@@ -114,8 +132,34 @@ GPU的内存系统采用分层架构设计，每一层都有其特定的访问�
 ## CUDA编程模型基础
 
 ### 1. 主机代码 vs 设备代码
-- **主机代码(Host Code)**: 在CPU上运行，负责数据准备、内存分配和结果处理
-- **设备代码(Device Code)**: 在GPU上运行，使用`__global__`关键字标记
+
+在CUDA编程中，程序被分为两个主要部分，分别在不同的硬件上执行：
+
+**主机代码 (Host Code)**：
+- **执行位置**: 在CPU上运行（如Intel Core i7、AMD Ryzen等）
+- **编程语言**: 使用标准C/C++编写
+- **主要职责**: 
+  - 数据准备和初始化
+  - 在CPU内存中分配空间
+  - 在GPU内存中分配空间
+  - 启动GPU kernel
+  - 从GPU获取计算结果
+  - 结果处理和输出
+- **内存管理**: 管理CPU内存（RAM）和GPU内存之间的数据传输
+
+**设备代码 (Device Code)**：
+- **执行位置**: 在GPU上运行（如NVIDIA RTX 4090、Tesla A100等）
+- **编程语言**: 使用CUDA C/C++扩展，需要`__global__`、`__device__`等关键字标记
+- **主要职责**: 
+  - 执行并行计算任务
+  - 处理大规模数据
+  - 利用GPU的并行架构
+- **内存管理**: 只能访问GPU内存，不能直接访问CPU内存
+
+**关键区别**：
+- **主机代码**控制程序的整体流程，**设备代码**专注于计算密集型任务
+- **主机代码**是串行执行，**设备代码**是并行执行
+- 两者通过CUDA运行时API进行通信和协调
 
 ### 2. 线程层次结构
 
@@ -202,6 +246,8 @@ __global__ void vector_add(const float *a, const float *b, float *c, int n) {
 }
 ```
 
+**完整代码**: [`vector_add.cu`](vector_add.cu)
+
 **关键点:**
 - `__global__`: 表示这是一个CUDA kernel，从主机调用，在设备上执行
 - 每个线程处理一个数组元素
@@ -214,11 +260,94 @@ __global__ void vector_add(const float *a, const float *b, float *c, int n) {
 4. **结果获取**: 将结果从设备复制回主机
 
 ### 线程配置
+
+#### 基本配置
 ```cpp
 int threadsPerBlock = 256;  // 每个线程块256个线程
 int blocksPerGrid = (n + threadsPerBlock - 1) / threadsPerBlock;  // 计算需要的线程块数
 vector_add<<<blocksPerGrid, threadsPerBlock>>>(d_a, d_b, d_c, n);
 ```
+
+#### 参数说明和优化
+
+**为什么选择256个线程？**
+256这个数字是经过大量实践测试得出的经验值，它平衡了以下几个因素：
+- **硬件限制**: 每个SM最多支持的线程数因GPU架构而异，RTX 4090支持1024个线程/SM，256是一个常用的平衡值
+- **资源利用率**: 256个线程能够充分利用SM的寄存器、共享内存等资源
+- **调度效率**: 是32的倍数（warp大小），避免warp分化
+- **灵活性**: 256 = 8 × 32，可以灵活地组织成2D或3D的线程块结构
+
+**为什么是32的倍数？**
+由于warp大小固定为32，选择32的倍数作为线程块大小可以：
+- 确保每个warp都能被完全填满，避免部分warp的浪费
+- 优化GPU的调度效率，减少线程切换开销
+- 提高内存访问的合并性，增加内存带宽利用率
+
+
+**✍️什么是Warp分化(Divergence)？**
+Warp分化是GPU编程中的一个重要概念，指的是同一个warp内的线程执行不同的代码路径。当warp内的32个线程遇到条件分支时，GPU无法让所有线程同时执行，必须串行处理每个分支，这会导致严重的性能损失。
+
+```cpp
+// 示例：会导致warp分化的代码
+__global__ void divergent_kernel(int *data, int n) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < n) {  // 条件分支 - 可能导致warp分化
+        if (data[idx] > 0) {  // 另一个条件分支
+            data[idx] = data[idx] * 2;  // 部分线程执行
+        } else {
+            data[idx] = data[idx] / 2;  // 其他线程执行
+        }
+    }
+}
+```
+
+在上面的代码中，当不同的线程执行不同的条件分支时，就会发生warp分化。GPU需要先执行所有满足`data[idx] > 0`条件的线程，然后再执行其他线程，这种串行执行方式大大降低了并行效率。
+
+
+**💡 获取GPU参数的小程序**
+为了方便获取这些参数值，我们提供了专门的GPU信息获取程序：
+
+- **Python版本**: [`gpu_info.py`](gpu_info.py)
+- **CUDA版本**: [`gpu_info.cu`](gpu_info.cu)
+- **C++版本**: [`gpu_info_cpp.cpp`](gpu_info_cpp.cpp)
+- **配置总结**: [`GPU_CONFIG_SUMMARY.md`](GPU_CONFIG_SUMMARY.md) - 笔者的RTX 4090详细配置
+
+运行这些程序可以获取：
+- `prop.maxThreadsPerBlock` - 每块最大线程数
+- `prop.maxThreadsPerMultiProcessor` - 每SM最大线程数
+- `prop.sharedMemPerBlock` - 每块最大共享内存
+- `prop.regsPerBlock` - 每块最大寄存器数
+- `prop.multiProcessorCount` - SM数量
+- 以及更多GPU硬件参数
+
+**推荐使用方式**：
+```bash
+# Python版本（推荐，无需编译）
+python gpu_info.py
+
+# C++版本（系统信息检查）
+g++ -o gpu_info_cpp gpu_info_cpp.cpp
+./gpu_info_cpp
+
+# CUDA版本（完整硬件信息，需要编译）
+nvcc -arch=sm_89 -O3 -o gpu_info gpu_info.cu
+./gpu_info
+```
+
+**blocksPerGrid计算公式解释**：
+```cpp
+int blocksPerGrid = (n + threadsPerBlock - 1) / threadsPerGrid;
+```
+这个公式确保有足够的线程块来处理所有数据：
+- 如果n=1000，threadsPerBlock=256
+- 需要4个线程块：前3个处理256×3=768个元素，第4个处理剩余的232个元素
+- 公式中的`+ threadsPerBlock - 1`是为了向上取整
+
+**实际应用建议**：
+- **小数据集**（n < 10000）: 使用64-128个线程
+- **中等数据集**（10000 ≤ n < 1000000）: 使用256个线程
+- **大数据集**（n ≥ 1000000）: 使用512个线程
+- **特殊应用**: 根据具体算法特点调整，如矩阵运算可能需要2D线程块
 
 ## 编译和运行
 
@@ -227,17 +356,72 @@ vector_add<<<blocksPerGrid, threadsPerBlock>>>(d_a, d_b, d_c, n);
 nvcc -o vector_add vector_add.cu
 ```
 
-### 运行命令
+**源代码**: [`vector_add.cu`](vector_add.cu)
+
+### 运行命令并观察结果
 ```bash
-./vector_add
+$./vector_add 
+c[0] = 3
+c[1] = 3
+c[2] = 3
 ```
 
 ## CUDA执行模型
 
-#### Warp概念
-- **定义**: 32个线程组成一个warp，是GPU调度的基本单位
-- **执行**: 同一个warp内的线程执行相同的指令
-- **分支**: 如果warp内线程执行不同分支，会导致warp分化(warp divergence)
+#### ✍️ Warp执行特性
+- **执行模式**: 同一个warp内的线程执行相同的指令
+- **分支处理**: 如果warp内线程执行不同分支，会导致warp分化(warp divergence)
+- **性能影响**: warp分化会显著降低GPU的执行效率
+
+**Warp分化详解**：
+Warp分化是GPU编程中最重要的性能杀手之一。当warp内的32个线程遇到条件分支时，GPU无法让所有线程同时执行，必须串行处理每个分支：
+
+```cpp
+// 典型的warp分化场景
+__global__ void example_kernel(int *data, int n) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    
+    // 这个if语句会导致warp分化
+    if (data[idx] > 0) {
+        // 只有部分线程执行这个分支
+        data[idx] = data[idx] * 2;
+    } else {
+        // 其他线程执行这个分支
+        data[idx] = data[idx] / 2;
+    }
+}
+```
+
+**性能影响量化**：
+- **理想情况**: 所有线程执行相同路径，性能100%
+- **轻微分化**: 少数线程分支，性能下降10-20%
+- **严重分化**: 大量线程分支，性能下降50-80%
+- **完全分化**: 每个线程都不同路径，性能下降90%以上
+
+**实际优化技巧**：
+```cpp
+// 优化前：容易产生warp分化
+__global__ void unoptimized_kernel(int *data, int n) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < n) {
+        if (data[idx] % 2 == 0) {  // 分支条件
+            data[idx] = data[idx] * 2;
+        } else {
+            data[idx] = data[idx] + 1;
+        }
+    }
+}
+
+// 优化后：减少warp分化
+__global__ void optimized_kernel(int *data, int n) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < n) {
+        // 使用数学技巧避免分支
+        int is_even = 1 - (data[idx] % 2);  // 0或1
+        data[idx] = data[idx] * (1 + is_even) + (1 - is_even);
+    }
+}
+```
 
 #### 线程块调度
 - **SM分配**: 线程块被分配到不同的流式多处理器(SM)

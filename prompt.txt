@@ -17,3 +17,6 @@
 
 
 在day6的blog里面，不要快速开始部分，把命令行放到相应代码段的下面
+
+
+Do not try to run nvcc or g++, let me run it by showing me the command. but you can run python. use conda env vllm-dev
