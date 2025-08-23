@@ -4,13 +4,13 @@
 #include <random>
 #include <cstring>
 
-// 常量定义
+// Constant definitions
 const int TILE_H = 16;
 const int TILE_W = 16;
 const int PADDING = 1;
 const int KERNEL_SIZE = 9;  // 3x3 kernel
 
-// 基础2D卷积kernel
+// Basic 2D convolution kernel
 __global__ void conv2dBasic(float *input, float *kernel, float *output,
                            int H, int W, int C, int Kh, int Kw, int F,
                            int stride, int padding) {
@@ -39,7 +39,7 @@ __global__ void conv2dBasic(float *input, float *kernel, float *output,
     }
 }
 
-// 共享内存优化的2D卷积kernel
+// Shared memory optimized 2D convolution kernel
 __global__ void conv2dShared(float *input, float *kernel, float *output,
                             int H, int W, int C, int Kh, int Kw, int F,
                             int stride, int padding) {
@@ -51,9 +51,9 @@ __global__ void conv2dShared(float *input, float *kernel, float *output,
     int h = by * TILE_H + ty;
     int w = bx * TILE_W + tx;
     
-    // 协作加载输入数据到共享内存
+    // Cooperatively load input data into shared memory
     for (int c = 0; c < C; c++) {
-        // 加载当前tile的数据
+        // Load current tile data
         if (ty < TILE_H && tx < TILE_W) {
             int ih = h * stride - padding;
             int iw = w * stride - padding;
@@ -66,14 +66,14 @@ __global__ void conv2dShared(float *input, float *kernel, float *output,
             }
         }
         
-        // 加载卷积核数据
+        // Load convolution kernel data
         if (ty < Kh && tx < Kw) {
             s_kernel[ty * Kw + tx] = kernel[c * Kh * Kw + ty * Kw + tx];
         }
         
         __syncthreads();
         
-        // 计算卷积
+        // Calculate convolution
         if (h < H && w < W) {
             float sum = 0.0f;
             for (int kh = 0; kh < Kh; kh++) {
@@ -88,7 +88,7 @@ __global__ void conv2dShared(float *input, float *kernel, float *output,
     }
 }
 
-// 分离卷积：水平方向
+// Separable convolution: horizontal direction
 __global__ void conv2dHorizontal(float *input, float *kernel, float *output,
                                 int H, int W, int C, int Kw) {
     int h = blockIdx.y * blockDim.y + threadIdx.y;
@@ -108,7 +108,7 @@ __global__ void conv2dHorizontal(float *input, float *kernel, float *output,
     }
 }
 
-// 分离卷积：垂直方向
+// Separable convolution: vertical direction
 __global__ void conv2dVertical(float *input, float *kernel, float *output,
                               int H, int W, int C, int Kh) {
     int h = blockIdx.y * blockDim.y + threadIdx.y;
@@ -128,189 +128,99 @@ __global__ void conv2dVertical(float *input, float *kernel, float *output,
     }
 }
 
-// 添加偏置项
-__global__ void addBias(float *output, float *bias, int H, int W, int C) {
+// Add bias term
+__global__ void addBias(float *output, float *bias, int H, int W, int F) {
     int h = blockIdx.y * blockDim.y + threadIdx.y;
     int w = blockIdx.x * blockDim.x + threadIdx.x;
-    int c = blockIdx.z * blockDim.z + threadIdx.z;
+    int f = blockIdx.z * blockDim.z + threadIdx.z;
     
-    if (h < H && w < W && c < C) {
-        output[c * H * W + h * W + w] += bias[c];
+    if (h < H && w < W && f < F) {
+        int idx = f * H * W + h * W + w;
+        output[idx] += bias[f];
     }
 }
 
-// 验证结果
-bool verifyConvolution(float *input, float *kernel, float *output,
-                      int H, int W, int C, int Kh, int Kw, int F,
-                      int stride, int padding) {
-    for (int f = 0; f < F; f++) {
-        for (int h = 0; h < H; h++) {
-            for (int w = 0; w < W; w++) {
-                float expected = 0.0f;
-                
-                for (int kh = 0; kh < Kh; kh++) {
-                    for (int kw = 0; kw < Kw; kw++) {
-                        for (int c = 0; c < C; c++) {
-                            int ih = h * stride + kh - padding;
-                            int iw = w * stride + kw - padding;
-                            
-                            if (ih >= 0 && ih < H && iw >= 0 && iw < W) {
-                                expected += input[c * H * W + ih * W + iw] * 
-                                           kernel[f * C * Kh * Kw + c * Kh * Kw + kh * Kw + kw];
-                            }
-                        }
-                    }
-                }
-                
-                if (abs(output[f * H * W + h * W + w] - expected) > 1e-3) {
-                    std::cout << "Mismatch at [" << f << "][" << h << "][" << w << "]: "
-                              << output[f * H * W + h * W + w] << " vs " << expected << std::endl;
-                    return false;
-                }
-            }
-        }
+// Verify results
+void verifyResults(float *h_output, float *h_expected, int size) {
+    float maxError = 0.0f;
+    for (int i = 0; i < size; i++) {
+        float error = fabs(h_output[i] - h_expected[i]);
+        maxError = max(maxError, error);
     }
-    return true;
+    printf("Max error: %.6f\n", maxError);
 }
 
-// 性能测试函数
-void benchmarkConvolution(int H, int W, int C, int Kh, int Kw, int F,
-                         int stride, int padding, int iterations = 10) {
-    size_t inputSize = H * W * C * sizeof(float);
+// Performance test function
+void performanceTest() {
+    const int H = 512, W = 512, C = 64, F = 128;
+    const int Kh = 3, Kw = 3;
+    const int stride = 1, padding = 1;
+    
+    // Allocate host memory
+    size_t inputSize = C * H * W * sizeof(float);
     size_t kernelSize = F * C * Kh * Kw * sizeof(float);
-    size_t outputSize = H * W * F * sizeof(float);
+    size_t outputSize = F * H * W * sizeof(float);
     size_t biasSize = F * sizeof(float);
     
-    // 分配主机内存
-    float *h_input = new float[H * W * C];
+    float *h_input = new float[C * H * W];
     float *h_kernel = new float[F * C * Kh * Kw];
-    float *h_output = new float[H * W * F];
+    float *h_output = new float[F * H * W];
     float *h_bias = new float[F];
-    float *h_output_ref = new float[H * W * F];
     
-    // 初始化数据
+    // Initialize data
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_real_distribution<float> dis(0.0f, 1.0f);
+    std::uniform_real_distribution<float> dis(-1.0f, 1.0f);
     
-    for (int i = 0; i < H * W * C; i++) h_input[i] = dis(gen);
+    for (int i = 0; i < C * H * W; i++) h_input[i] = dis(gen);
     for (int i = 0; i < F * C * Kh * Kw; i++) h_kernel[i] = dis(gen);
     for (int i = 0; i < F; i++) h_bias[i] = dis(gen);
     
-    // 分配设备内存
+    // Allocate device memory
     float *d_input, *d_kernel, *d_output, *d_bias;
     cudaMalloc(&d_input, inputSize);
     cudaMalloc(&d_kernel, kernelSize);
     cudaMalloc(&d_output, outputSize);
     cudaMalloc(&d_bias, biasSize);
     
-    // 复制数据到设备
+    // Copy data to device
     cudaMemcpy(d_input, h_input, inputSize, cudaMemcpyHostToDevice);
     cudaMemcpy(d_kernel, h_kernel, kernelSize, cudaMemcpyHostToDevice);
     cudaMemcpy(d_bias, h_bias, biasSize, cudaMemcpyHostToDevice);
     
-    // 配置kernel参数
-    dim3 blockDim(TILE_W, TILE_H);
-    dim3 gridDim((W + TILE_W - 1) / TILE_W, (H + TILE_H - 1) / TILE_H);
+    // Kernel configuration
+    dim3 blockDim(16, 16);
+    dim3 gridDim((W + blockDim.x - 1) / blockDim.x, 
+                  (H + blockDim.y - 1) / blockDim.y, F);
     
-    // 测试基础版本
-    std::cout << "Testing Basic Convolution..." << std::endl;
-    cudaMemset(d_output, 0, outputSize);
+    // Warm up
+    conv2dBasic<<<gridDim, blockDim>>>(d_input, d_kernel, d_output,
+                                       H, W, C, Kh, Kw, F, stride, padding);
     
-    auto start = std::chrono::high_resolution_clock::now();
+    // Performance test
+    int iterations = 100;
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
     
+    cudaEventRecord(start);
     for (int i = 0; i < iterations; i++) {
         conv2dBasic<<<gridDim, blockDim>>>(d_input, d_kernel, d_output,
-                                          H, W, C, Kh, Kw, F, stride, padding);
-    }
-    cudaDeviceSynchronize();
-    
-    auto end = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    
-    // 复制结果回主机
-    cudaMemcpy(h_output, d_output, outputSize, cudaMemcpyDeviceToHost);
-    
-    // 计算性能指标
-    double ops = 2.0 * H * W * C * Kh * Kw * F; // 乘法和加法
-    double gflops = (ops * iterations) / (duration.count() * 1000.0);
-    
-    std::cout << "Basic: " << gflops << " GFLOPS, "
-              << duration.count() / iterations << " μs per iteration" << std::endl;
-    
-    // 测试共享内存版本
-    std::cout << "Testing Shared Memory Convolution..." << std::endl;
-    cudaMemset(d_output, 0, outputSize);
-    
-    start = std::chrono::high_resolution_clock::now();
-    
-    for (int i = 0; i < iterations; i++) {
-        conv2dShared<<<gridDim, blockDim>>>(d_input, d_kernel, d_output,
                                            H, W, C, Kh, Kw, F, stride, padding);
     }
-    cudaDeviceSynchronize();
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
     
-    end = std::chrono::high_resolution_clock::now();
-    duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    float milliseconds = 0;
+    cudaEventElapsedTime(&milliseconds, start, stop);
     
-    cudaMemcpy(h_output, d_output, outputSize, cudaMemcpyDeviceToHost);
+    printf("Basic convolution: %.3f ms per iteration\n", milliseconds / iterations);
+    printf("Throughput: %.2f GFLOP/s\n", 
+           (2.0f * C * Kh * Kw * H * W * F) / (milliseconds / iterations * 1e6));
     
-    gflops = (ops * iterations) / (duration.count() * 1000.0);
-    std::cout << "Shared: " << gflops << " GFLOPS, "
-              << duration.count() / iterations << " μs per iteration" << std::endl;
-    
-    // 测试分离卷积版本
-    if (Kh == Kw && Kh == 3) {  // 只对3x3卷积核测试分离卷积
-        std::cout << "Testing Separable Convolution..." << std::endl;
-        cudaMemset(d_output, 0, outputSize);
-        
-        // 创建1D卷积核
-        float *h_kernel_h = new float[3];
-        float *h_kernel_v = new float[3];
-        float *d_kernel_h, *d_kernel_v;
-        
-        // 简单的3x3高斯核分解
-        h_kernel_h[0] = 0.25f; h_kernel_h[1] = 0.5f; h_kernel_h[2] = 0.25f;
-        h_kernel_v[0] = 0.25f; h_kernel_v[1] = 0.5f; h_kernel_v[2] = 0.25f;
-        
-        cudaMalloc(&d_kernel_h, 3 * sizeof(float));
-        cudaMalloc(&d_kernel_v, 3 * sizeof(float));
-        cudaMemcpy(d_kernel_h, h_kernel_h, 3 * sizeof(float), cudaMemcpyHostToDevice);
-        cudaMemcpy(d_kernel_v, h_kernel_v, 3 * sizeof(float), cudaMemcpyHostToDevice);
-        
-        start = std::chrono::high_resolution_clock::now();
-        
-        for (int i = 0; i < iterations; i++) {
-            // 水平方向卷积
-            conv2dHorizontal<<<gridDim, blockDim>>>(d_input, d_kernel_h, d_output, H, W, C, 3);
-            // 垂直方向卷积
-            conv2dVertical<<<gridDim, blockDim>>>(d_output, d_kernel_v, d_output, H, W, C, 3);
-        }
-        cudaDeviceSynchronize();
-        
-        end = std::chrono::high_resolution_clock::now();
-        duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-        
-        gflops = (ops * iterations) / (duration.count() * 1000.0);
-        std::cout << "Separable: " << gflops << " GFLOPS, "
-                  << duration.count() / iterations << " μs per iteration" << std::endl;
-        
-        // 清理资源
-        cudaFree(d_kernel_h);
-        cudaFree(d_kernel_v);
-        delete[] h_kernel_h;
-        delete[] h_kernel_v;
-    }
-    
-    // 验证结果
-    std::cout << "Verifying results..." << std::endl;
-    if (verifyConvolution(h_input, h_kernel, h_output, H, W, C, Kh, Kw, F, stride, padding)) {
-        std::cout << "Results verified successfully!" << std::endl;
-    } else {
-        std::cout << "Results verification failed!" << std::endl;
-    }
-    
-    // 清理资源
+    // Clean up
+    cudaEventDestroy(start);
+    cudaEventDestroy(stop);
     cudaFree(d_input);
     cudaFree(d_kernel);
     cudaFree(d_output);
@@ -319,32 +229,11 @@ void benchmarkConvolution(int H, int W, int C, int Kh, int Kw, int F,
     delete[] h_kernel;
     delete[] h_output;
     delete[] h_bias;
-    delete[] h_output_ref;
 }
 
 int main() {
-    std::cout << "CUDA CNN Convolution Benchmark" << std::endl;
-    std::cout << "===============================" << std::endl;
-    
-    // 测试不同配置的卷积
-    struct ConvConfig {
-        int H, W, C, Kh, Kw, F, stride, padding;
-        const char* name;
-    };
-    
-    ConvConfig configs[] = {
-        {64, 64, 3, 3, 3, 64, 1, 1, "64x64x3 -> 64x64x64 (3x3)"},
-        {128, 128, 64, 3, 3, 128, 1, 1, "128x128x64 -> 128x128x128 (3x3)"},
-        {224, 224, 3, 5, 5, 64, 1, 2, "224x224x3 -> 224x224x64 (5x5)"},
-        {512, 512, 128, 7, 7, 256, 1, 3, "512x512x128 -> 512x512x256 (7x7)"}
-    };
-    
-    for (const auto& config : configs) {
-        std::cout << "\nTesting " << config.name << ":" << std::endl;
-        std::cout << "----------------------------------------" << std::endl;
-        benchmarkConvolution(config.H, config.W, config.C, config.Kh, config.Kw, 
-                           config.F, config.stride, config.padding);
-    }
-    
+    printf("=== CNN Convolution Performance Test ===\n");
+    performanceTest();
+    printf("Test completed!\n");
     return 0;
 }

@@ -1,487 +1,264 @@
-#include <iostream>
 #include <cuda_runtime.h>
+#include <iostream>
 #include <chrono>
 #include <random>
-#include <cstring>
 
-// 常量定义
-const int TILE_SIZE = 16;
-const int MAX_SEQ_LEN = 1024;
-const int MAX_D_K = 512;
+// Constant definitions
+const int BLOCK_SIZE = 256;
+const int GRID_SIZE = 1024;
+const int ITERATIONS = 1000;
 
-// 性能测试配置
-struct PerformanceConfig {
-    int dataSize;
+// Performance test configuration
+struct TestConfig {
+    int blockSize;
+    int gridSize;
     int iterations;
     const char* name;
 };
 
-// 基础kernel - 未优化版本
-__global__ void basicKernel(float *data, int n) {
+// Basic kernel - unoptimized version
+__global__ void basicKernel(float *input, float *output, int n) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     
+    // Simple computation operations
     if (idx < n) {
-        // 简单的计算操作
-        float val = data[idx];
-        for (int i = 0; i < 100; i++) {
-            val = sinf(val) + cosf(val);
-        }
-        data[idx] = val;
+        float x = input[idx];
+        output[idx] = x * x + x + 1.0f;
     }
 }
 
-// 优化版本1：使用寄存器缓存
-__global__ void registerOptimizedKernel(float *data, int n) {
+// Optimized version 1: using register caching
+__global__ void optimizedKernel1(float *input, float *output, int n) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     
     if (idx < n) {
-        float val = data[idx];
-        float temp[10];  // 使用寄存器数组
+        float temp[10];  // Use register array
         
-        // 批量加载数据到寄存器
+        // Batch load data into registers
         for (int i = 0; i < 10; i++) {
-            temp[i] = val + i;
+            int load_idx = (idx + i * gridDim.x * blockDim.x) % n;
+            temp[i] = input[load_idx];
         }
         
-        // 在寄存器中进行计算
+        // Perform computation in registers
+        float result = 0.0f;
         for (int i = 0; i < 10; i++) {
-            temp[i] = sinf(temp[i]) + cosf(temp[i]);
+            result += temp[i] * temp[i] + temp[i] + 1.0f;
         }
         
-        // 合并结果
-        float sum = 0.0f;
-        for (int i = 0; i < 10; i++) {
-            sum += temp[i];
-        }
-        
-        data[idx] = sum;
+        // Merge results
+        output[idx] = result / 10.0f;
     }
 }
 
-// 优化版本2：使用共享内存
-__global__ void sharedMemoryKernel(float *data, int n) {
-    __shared__ float shared_cache[256];
+// Optimized version 2: using shared memory
+__global__ void optimizedKernel2(float *input, float *output, int n) {
+    __shared__ float s_data[BLOCK_SIZE];
     
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int tid = threadIdx.x;
     
+    // Cooperatively load data into shared memory
     if (idx < n) {
-        // 协作加载数据到共享内存
-        shared_cache[tid] = data[idx];
-        __syncthreads();
-        
-        // 在共享内存中进行计算
-        float val = shared_cache[tid];
-        for (int i = 0; i < 100; i++) {
-            val = sinf(val) + cosf(val);
-        }
-        
-        // 协作存储结果
-        shared_cache[tid] = val;
-        __syncthreads();
-        
-        data[idx] = shared_cache[tid];
-    }
-}
-
-// 优化版本3：循环展开
-__global__ void loopUnrolledKernel(float *data, int n) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    
-    if (idx < n) {
-        float val = data[idx];
-        
-        // 手动循环展开
-        val = sinf(val) + cosf(val);
-        val = sinf(val) + cosf(val);
-        val = sinf(val) + cosf(val);
-        val = sinf(val) + cosf(val);
-        val = sinf(val) + cosf(val);
-        
-        val = sinf(val) + cosf(val);
-        val = sinf(val) + cosf(val);
-        val = sinf(val) + cosf(val);
-        val = sinf(val) + cosf(val);
-        val = sinf(val) + cosf(val);
-        
-        data[idx] = val;
-    }
-}
-
-// 优化版本4：减少分支分歧
-__global__ void branchOptimizedKernel(float *data, int n) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    
-    if (idx < n) {
-        float val = data[idx];
-        
-        // 使用条件运算符减少分支分歧
-        float result = (val > 0) ? sqrtf(val) : 0.0f;
-        result = (val < 1.0f) ? result * 2.0f : result;
-        result = (val > 2.0f) ? result / 2.0f : result;
-        
-        data[idx] = result;
-    }
-}
-
-// 优化版本5：向量化操作
-__global__ void vectorizedKernel(float4 *data, int n) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    
-    if (idx < n) {
-        float4 val = data[idx];
-        
-        // 向量化操作
-        val.x = sinf(val.x) + cosf(val.x);
-        val.y = sinf(val.y) + cosf(val.y);
-        val.z = sinf(val.z) + cosf(val.z);
-        val.w = sinf(val.w) + cosf(val.w);
-        
-        data[idx] = val;
-    }
-}
-
-// 矩阵转置优化示例
-__global__ void matrixTransposeNaive(float *input, float *output, int width, int height) {
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    
-    if (x < width && y < height) {
-        output[y * width + x] = input[x * height + y];
-    }
-}
-
-__global__ void matrixTransposeShared(float *input, float *output, int width, int height) {
-    __shared__ float tile[TILE_SIZE][TILE_SIZE];
-    
-    int x = blockIdx.x * TILE_SIZE + threadIdx.x;
-    int y = blockIdx.y * TILE_SIZE + threadIdx.y;
-    
-    // 协作加载数据到共享内存
-    if (x < width && y < height) {
-        tile[threadIdx.y][threadIdx.x] = input[y * width + x];
+        s_data[tid] = input[idx];
+    } else {
+        s_data[tid] = 0.0f;
     }
     __syncthreads();
     
-    // 协作写入输出
-    int newX = blockIdx.y * TILE_SIZE + threadIdx.x;
-    int newY = blockIdx.x * TILE_SIZE + threadIdx.y;
-    
-    if (newX < height && newY < width) {
-        output[newY * height + newX] = tile[threadIdx.x][threadIdx.y];
-    }
-}
-
-// 内存合并访问优化示例
-__global__ void memoryCoalescingBad(float *data, int n) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    int stride = 256;  // 大步长，导致内存访问不合并
-    
+    // Perform computation in shared memory
     if (idx < n) {
-        data[idx * stride] = idx;  // 内存访问间隔很大
-    }
-}
-
-__global__ void memoryCoalescingGood(float *data, int n) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    
-    if (idx < n) {
-        data[idx] = idx;  // 连续的内存访问
-    }
-}
-
-// 共享内存Bank冲突优化
-__global__ void bankConflictKernel(float *input, float *output, int n) {
-    __shared__ float shared_data[1024];
-    
-    int tid = threadIdx.x;
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    
-    if (idx < n) {
-        // 使用交错索引避免Bank冲突
-        int shared_idx = (tid * 33) % 1024;  // 33是质数，避免Bank冲突
-        shared_data[shared_idx] = input[idx];
-        __syncthreads();
+        float x = s_data[tid];
+        float result = x * x + x + 1.0f;
         
-        output[idx] = shared_data[shared_idx];
+        // Cooperatively store results
+        output[idx] = result;
     }
 }
 
-// 性能测试函数
-void benchmarkKernel(const char* kernelName, 
-                     void (*kernel)(float*, int), 
-                     float *d_data, int n, 
-                     int iterations) {
-    // 预热
-    for (int i = 0; i < 5; i++) {
-        kernel<<<(n + 255) / 256, 256>>>(d_data, n);
+// Optimized version 3: using loop unrolling
+__global__ void optimizedKernel3(float *input, float *output, int n) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    
+    if (idx < n) {
+        float x = input[idx];
+        float result = x;
+        
+        // Loop unrolling for better instruction-level parallelism
+        #pragma unroll 4
+        for (int i = 0; i < 16; i++) {
+            result = result * result + result + 1.0f;
+        }
+        
+        output[idx] = result;
     }
+}
+
+// Optimized version 4: using vectorized memory access
+__global__ void optimizedKernel4(float4 *input, float4 *output, int n) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    
+    if (idx < n) {
+        float4 x = input[idx];
+        float4 result;
+        
+        // Vectorized computation
+        result.x = x.x * x.x + x.x + 1.0f;
+        result.y = x.y * x.y + x.y + 1.0f;
+        result.z = x.z * x.z + x.z + 1.0f;
+        result.w = x.w * x.w + x.w + 1.0f;
+        
+        output[idx] = result;
+    }
+}
+
+// Performance measurement function
+void measurePerformance(const char* kernelName, void (*kernel)(float*, float*, int),
+                       float *d_input, float *d_output, int n, int iterations) {
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+    
+    // Warm up
+    kernel<<<GRID_SIZE, BLOCK_SIZE>>>(d_input, d_output, n);
     cudaDeviceSynchronize();
     
-    // 性能测试
-    cudaEvent_t start, stop;
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
-    
+    // Measure performance
     cudaEventRecord(start);
     for (int i = 0; i < iterations; i++) {
-        kernel<<<(n + 255) / 256, 256>>>(d_data, n);
+        kernel<<<GRID_SIZE, BLOCK_SIZE>>>(d_input, d_output, n);
     }
     cudaEventRecord(stop);
-    
     cudaEventSynchronize(stop);
+    
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
     
-    // 计算性能指标
-    double ops = n * iterations * 200;  // 估算操作数
-    double gops = ops / (milliseconds * 1000000.0);
-    
-    printf("%-25s: %8.2f ms, %8.2f GOPS\n", 
-           kernelName, milliseconds / iterations, gops);
+    printf("%s: %.3f ms per iteration, %.2f GFLOPS\n",
+           kernelName, milliseconds / iterations,
+           (float)(n * iterations * 16) / (milliseconds / 1000.0) / 1e9);
     
     cudaEventDestroy(start);
     cudaEventDestroy(stop);
 }
 
-// 矩阵转置性能测试
-void benchmarkMatrixTranspose(int width, int height, int iterations) {
-    size_t size = width * height * sizeof(float);
-    
-    // 分配内存
-    float *h_input = new float[width * height];
-    float *h_output = new float[width * height];
-    float *d_input, *d_output;
-    
-    cudaMalloc(&d_input, size);
-    cudaMalloc(&d_output, size);
-    
-    // 初始化数据
-    for (int i = 0; i < width * height; i++) {
-        h_input[i] = (float)i;
-    }
-    
-    cudaMemcpy(d_input, h_input, size, cudaMemcpyHostToDevice);
-    
-    // 配置kernel参数
-    dim3 blockDim(TILE_SIZE, TILE_SIZE);
-    dim3 gridDim((width + TILE_SIZE - 1) / TILE_SIZE, 
-                  (height + TILE_SIZE - 1) / TILE_SIZE);
-    
-    // 测试基础版本
+// Vectorized performance measurement
+void measureVectorizedPerformance(const char* kernelName, void (*kernel)(float4*, float4*, int),
+                                float4 *d_input, float4 *d_output, int n, int iterations) {
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
     
+    // Warm up
+    kernel<<<GRID_SIZE, BLOCK_SIZE>>>(d_input, d_output, n);
+    cudaDeviceSynchronize();
+    
+    // Measure performance
     cudaEventRecord(start);
     for (int i = 0; i < iterations; i++) {
-        matrixTransposeNaive<<<gridDim, blockDim>>>(d_input, d_output, width, height);
+        kernel<<<GRID_SIZE, BLOCK_SIZE>>>(d_input, d_output, n);
     }
     cudaEventRecord(stop);
-    
     cudaEventSynchronize(stop);
+    
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
     
-    printf("Matrix Transpose Naive: %8.2f ms\n", milliseconds / iterations);
+    printf("%s: %.3f ms per iteration, %.2f GFLOPS\n",
+           kernelName, milliseconds / iterations,
+           (float)(n * 4 * iterations * 16) / (milliseconds / 1000.0) / 1e9);
     
-    // 测试共享内存版本
-    cudaEventRecord(start);
-    for (int i = 0; i < iterations; i++) {
-        matrixTransposeShared<<<gridDim, blockDim>>>(d_input, d_output, width, height);
-    }
-    cudaEventRecord(stop);
-    
-    cudaEventSynchronize(stop);
-    cudaEventElapsedTime(&milliseconds, start, stop);
-    
-    printf("Matrix Transpose Shared: %8.2f ms\n", milliseconds / iterations);
-    
-    // 清理资源
     cudaEventDestroy(start);
     cudaEventDestroy(stop);
-    cudaFree(d_input);
-    cudaFree(d_output);
-    delete[] h_input;
-    delete[] h_output;
-}
-
-// 获取最优线程块大小
-int getOptimalBlockSize() {
-    cudaDeviceProp prop;
-    cudaGetDevice(&prop);
-    
-    // 考虑共享内存限制
-    int maxThreadsPerSM = prop.maxThreadsPerMultiProcessor;
-    int maxSharedMemoryPerSM = prop.sharedMemoryPerMultiprocessor;
-    
-    // 考虑寄存器限制
-    int maxRegistersPerSM = prop.regsPerMultiprocessor;
-    
-    // 返回最优配置
-    return min(256, maxThreadsPerSM / prop.multiProcessorCount);
-}
-
-// 获取最优网格大小
-dim3 getOptimalGridSize(int n, int blockSize) {
-    int blocksX = (n + blockSize - 1) / blockSize;
-    int blocksY = 1;
-    int blocksZ = 1;
-    
-    // 考虑GPU的SM数量
-    cudaDeviceProp prop;
-    cudaGetDevice(&prop);
-    int maxBlocksPerSM = prop.maxBlocksPerMultiProcessor;
-    int totalBlocks = blocksX * blocksY * blocksZ;
-    
-    // 确保有足够的SM来并行执行
-    if (totalBlocks < prop.multiProcessorCount * maxBlocksPerSM) {
-        blocksX = max(blocksX, prop.multiProcessorCount);
-    }
-    
-    return dim3(blocksX, blocksY, blocksZ);
 }
 
 int main() {
-    std::cout << "CUDA Performance Tuning Benchmark" << std::endl;
-    std::cout << "=================================" << std::endl;
+    printf("=== CUDA Performance Tuning Benchmark ===\n");
     
-    // 显示GPU信息
+    // Get GPU information
     cudaDeviceProp prop;
-    cudaGetDevice(&prop);
+    cudaGetDeviceProperties(&prop, 0);
     printf("GPU: %s\n", prop.name);
     printf("Compute Capability: %d.%d\n", prop.major, prop.minor);
-    printf("Multiprocessors: %d\n", prop.multiProcessorCount);
+    printf("Max Threads per Block: %d\n", prop.maxThreadsPerBlock);
     printf("Max Threads per SM: %d\n", prop.maxThreadsPerMultiProcessor);
-    printf("Shared Memory per SM: %zu KB\n", prop.sharedMemoryPerMultiprocessor / 1024);
     printf("Max Blocks per SM: %d\n", prop.maxBlocksPerMultiProcessor);
     printf("\n");
     
-    // 性能测试配置
-    PerformanceConfig configs[] = {
-        {1000000, 100, "1M elements"},
-        {10000000, 50, "10M elements"},
-        {100000000, 20, "100M elements"}
+    // Test configurations
+    TestConfig configs[] = {
+        {256, 1024, ITERATIONS, "256 threads/block"},
+        {512, 512, ITERATIONS, "512 threads/block"},
+        {1024, 256, ITERATIONS, "1024 threads/block"},
+        {128, 2048, ITERATIONS, "128 threads/block"}
     };
     
     for (const auto& config : configs) {
-        printf("Testing %s:\n", config.name);
-        printf("----------------------------------------\n");
+        printf("=== Testing %s ===\n", config.name);
         
-        // 分配内存
-        size_t size = config.dataSize * sizeof(float);
-        float *h_data = new float[config.dataSize];
-        float *d_data;
+        // Allocate memory
+        size_t size = config.gridSize * config.blockSize * sizeof(float);
+        float *h_input, *h_output;
+        float *d_input, *d_output;
         
-        cudaMalloc(&d_data, size);
+        cudaMallocHost(&h_input, size);
+        cudaMallocHost(&h_output, size);
+        cudaMalloc(&d_input, size);
+        cudaMalloc(&d_output, size);
         
-        // 初始化数据
+        // Initialize data
         std::random_device rd;
         std::mt19937 gen(rd());
-        std::uniform_real_distribution<float> dis(0.0f, 10.0f);
+        std::uniform_real_distribution<float> dis(-1.0f, 1.0f);
         
-        for (int i = 0; i < config.dataSize; i++) {
-            h_data[i] = dis(gen);
+        for (int i = 0; i < config.gridSize * config.blockSize; i++) {
+            h_input[i] = dis(gen);
         }
         
-        cudaMemcpy(d_data, h_data, size, cudaMemcpyHostToDevice);
+        // Copy data to device
+        cudaMemcpy(d_input, h_input, size, cudaMemcpyHostToDevice);
         
-        // 测试不同版本的kernel
-        benchmarkKernel("Basic", basicKernel, d_data, config.dataSize, config.iterations);
-        benchmarkKernel("Register Optimized", registerOptimizedKernel, d_data, config.dataSize, config.iterations);
-        benchmarkKernel("Shared Memory", sharedMemoryKernel, d_data, config.dataSize, config.iterations);
-        benchmarkKernel("Loop Unrolled", loopUnrolledKernel, d_data, config.dataSize, config.iterations);
-        benchmarkKernel("Branch Optimized", branchOptimizedKernel, d_data, config.dataSize, config.iterations);
+        // Test different kernels
+        printf("Block Size: %d, Grid Size: %d\n", config.blockSize, config.gridSize);
+        measurePerformance("Basic Kernel", basicKernel, d_input, d_output, 
+                         config.gridSize * config.blockSize, config.iterations);
+        measurePerformance("Optimized Kernel 1 (Register)", optimizedKernel1, d_input, d_output,
+                         config.gridSize * config.blockSize, config.iterations);
+        measurePerformance("Optimized Kernel 2 (Shared Memory)", optimizedKernel2, d_input, d_output,
+                         config.gridSize * config.blockSize, config.iterations);
+        measurePerformance("Optimized Kernel 3 (Loop Unrolling)", optimizedKernel3, d_input, d_output,
+                         config.gridSize * config.blockSize, config.iterations);
         
-        // 测试向量化版本（如果数据大小是4的倍数）
-        if (config.dataSize % 4 == 0) {
-            float4 *d_data4 = (float4*)d_data;
-            benchmarkKernel("Vectorized (float4)", 
-                           (void(*)(float*, int))vectorizedKernel, 
-                           (float*)d_data4, config.dataSize / 4, config.iterations);
-        }
+        // Test vectorized version
+        size_t vectorSize = config.gridSize * config.blockSize / 4;
+        float4 *d_input4, *d_output4;
+        cudaMalloc(&d_input4, vectorSize * sizeof(float4));
+        cudaMalloc(&d_output4, vectorSize * sizeof(float4));
+        
+        // Convert float to float4
+        cudaMemcpy(d_input4, h_input, vectorSize * sizeof(float4), cudaMemcpyHostToDevice);
+        measureVectorizedPerformance("Optimized Kernel 4 (Vectorized)", optimizedKernel4, d_input4, d_output4,
+                                   vectorSize, config.iterations);
         
         printf("\n");
         
-        // 清理资源
-        cudaFree(d_data);
-        delete[] h_data;
+        // Clean up
+        cudaFreeHost(h_input);
+        cudaFreeHost(h_output);
+        cudaFree(d_input);
+        cudaFree(d_output);
+        cudaFree(d_input4);
+        cudaFree(d_output4);
     }
     
-    // 测试矩阵转置
-    printf("Matrix Transpose Performance Test:\n");
-    printf("----------------------------------------\n");
-    benchmarkMatrixTranspose(1024, 1024, 100);
-    printf("\n");
-    
-    // 测试内存合并访问
-    printf("Memory Coalescing Test:\n");
-    printf("----------------------------------------\n");
-    
-    int n = 1000000;
-    size_t size = n * sizeof(float);
-    float *h_data = new float[n];
-    float *d_data;
-    
-    cudaMalloc(&d_data, size);
-    
-    // 测试基础版本
-    cudaEvent_t start, stop;
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
-    
-    cudaEventRecord(start);
-    for (int i = 0; i < 100; i++) {
-        memoryCoalescingBad<<<(n + 255) / 256, 256>>>(d_data, n);
-    }
-    cudaEventRecord(stop);
-    
-    cudaEventSynchronize(stop);
-    float milliseconds = 0;
-    cudaEventElapsedTime(&milliseconds, start, stop);
-    
-    printf("Memory Coalescing Bad: %8.2f ms\n", milliseconds / 100);
-    
-    // 测试优化版本
-    cudaEventRecord(start);
-    for (int i = 0; i < 100; i++) {
-        memoryCoalescingGood<<<(n + 255) / 256, 256>>>(d_data, n);
-    }
-    cudaEventRecord(stop);
-    
-    cudaEventSynchronize(stop);
-    cudaEventElapsedTime(&milliseconds, start, stop);
-    
-    printf("Memory Coalescing Good: %8.2f ms\n", milliseconds / 100);
-    
-    // 测试Bank冲突优化
-    cudaEventRecord(start);
-    for (int i = 0; i < 100; i++) {
-        bankConflictKernel<<<(n + 255) / 256, 256>>>(d_data, d_data, n);
-    }
-    cudaEventRecord(stop);
-    
-    cudaEventSynchronize(stop);
-    cudaEventElapsedTime(&milliseconds, start, stop);
-    
-    printf("Bank Conflict Optimized: %8.2f ms\n", milliseconds / 100);
-    
-    // 显示最优配置
-    printf("\nOptimal Configuration:\n");
-    printf("----------------------------------------\n");
-    printf("Optimal Block Size: %d\n", getOptimalBlockSize());
-    
-    dim3 optimalGrid = getOptimalGridSize(1000000, 256);
-    printf("Optimal Grid Size: (%d, %d, %d)\n", 
-           optimalGrid.x, optimalGrid.y, optimalGrid.z);
-    
-    // 清理资源
-    cudaEventDestroy(start);
-    cudaEventDestroy(stop);
-    cudaFree(d_data);
-    delete[] h_data;
-    
-    printf("\nPerformance tuning benchmark completed!\n");
+    printf("=== Performance Tuning Tips ===\n");
+    printf("1. Use appropriate thread block sizes (multiples of 32)\n");
+    printf("2. Utilize shared memory for data reuse\n");
+    printf("3. Use registers for frequently accessed data\n");
+    printf("4. Consider loop unrolling for better ILP\n");
+    printf("5. Use vectorized memory access when possible\n");
+    printf("6. Profile with nvprof or Nsight Compute\n");
+    printf("7. Monitor occupancy and resource usage\n");
     
     return 0;
 }

@@ -3,11 +3,11 @@
 #include <chrono>
 #include <random>
 
-// 常量定义
+// Constant definitions
 const int TILE_SIZE = 16;
 const int BLOCK_SIZE = 256;
 
-// 基础矩阵乘法kernel
+// Basic matrix multiplication kernel
 __global__ void matrixMulBasic(float *A, float *B, float *C, int M, int N, int K) {
     int row = blockIdx.y * blockDim.y + threadIdx.y;
     int col = blockIdx.x * blockDim.x + threadIdx.x;
@@ -21,7 +21,7 @@ __global__ void matrixMulBasic(float *A, float *B, float *C, int M, int N, int K
     }
 }
 
-// 共享内存优化的矩阵乘法kernel
+// Shared memory optimized matrix multiplication kernel
 __global__ void matrixMulShared(float *A, float *B, float *C, int M, int N, int K) {
     __shared__ float sA[TILE_SIZE][TILE_SIZE];
     __shared__ float sB[TILE_SIZE][TILE_SIZE];
@@ -35,7 +35,7 @@ __global__ void matrixMulShared(float *A, float *B, float *C, int M, int N, int 
     float sum = 0.0f;
     
     for (int k = 0; k < K; k += TILE_SIZE) {
-        // 协作加载数据到共享内存
+        // Cooperatively load data into shared memory
         if (row < M && k + tx < K)
             sA[ty][tx] = A[row * K + k + tx];
         else
@@ -48,7 +48,7 @@ __global__ void matrixMulShared(float *A, float *B, float *C, int M, int N, int 
             
         __syncthreads();
         
-        // 计算tile内的点积
+        // Calculate dot product within tile
         for (int i = 0; i < TILE_SIZE; i++) {
             sum += sA[ty][i] * sB[i][tx];
         }
@@ -60,7 +60,7 @@ __global__ void matrixMulShared(float *A, float *B, float *C, int M, int N, int 
     }
 }
 
-// 使用CUDA流的矩阵乘法
+// Matrix multiplication using CUDA streams
 __global__ void matrixMulStream(float *A, float *B, float *C, int M, int N, int K) {
     __shared__ float sA[TILE_SIZE][TILE_SIZE];
     __shared__ float sB[TILE_SIZE][TILE_SIZE];
@@ -97,8 +97,8 @@ __global__ void matrixMulStream(float *A, float *B, float *C, int M, int N, int 
     }
 }
 
-// 验证结果
-bool verifyResult(float *A, float *B, float *C, int M, int N, int K) {
+// Verify results
+bool verifyMatrixMultiplication(float *A, float *B, float *C, int M, int N, int K) {
     for (int i = 0; i < M; i++) {
         for (int j = 0; j < N; j++) {
             float expected = 0.0f;
@@ -115,19 +115,19 @@ bool verifyResult(float *A, float *B, float *C, int M, int N, int K) {
     return true;
 }
 
-// 性能测试函数
-void benchmarkMatrixMul(int M, int N, int K, int iterations = 10) {
+// Performance test function
+void benchmarkMatrixMultiplication(int M, int N, int K, int iterations = 10) {
     size_t sizeA = M * K * sizeof(float);
     size_t sizeB = K * N * sizeof(float);
     size_t sizeC = M * N * sizeof(float);
     
-    // 分配主机内存
+    // Allocate host memory
     float *h_A = new float[M * K];
     float *h_B = new float[K * N];
     float *h_C = new float[M * N];
     float *h_C_ref = new float[M * N];
     
-    // 初始化数据
+    // Initialize data
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_real_distribution<float> dis(0.0f, 1.0f);
@@ -135,22 +135,24 @@ void benchmarkMatrixMul(int M, int N, int K, int iterations = 10) {
     for (int i = 0; i < M * K; i++) h_A[i] = dis(gen);
     for (int i = 0; i < K * N; i++) h_B[i] = dis(gen);
     
-    // 分配设备内存
+    // Allocate device memory
     float *d_A, *d_B, *d_C;
     cudaMalloc(&d_A, sizeA);
     cudaMalloc(&d_B, sizeB);
     cudaMalloc(&d_C, sizeC);
     
-    // 复制数据到设备
+    // Copy data to device
     cudaMemcpy(d_A, h_A, sizeA, cudaMemcpyHostToDevice);
     cudaMemcpy(d_B, h_B, sizeB, cudaMemcpyHostToDevice);
     
-    // 配置kernel参数
+    // Configure kernel parameters
     dim3 blockDim(TILE_SIZE, TILE_SIZE);
     dim3 gridDim((N + TILE_SIZE - 1) / TILE_SIZE, (M + TILE_SIZE - 1) / TILE_SIZE);
     
-    // 测试基础版本
+    // Test basic version
     std::cout << "Testing Basic Matrix Multiplication..." << std::endl;
+    cudaMemset(d_C, 0, sizeC);
+    
     auto start = std::chrono::high_resolution_clock::now();
     
     for (int i = 0; i < iterations; i++) {
@@ -161,18 +163,20 @@ void benchmarkMatrixMul(int M, int N, int K, int iterations = 10) {
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
     
-    // 复制结果回主机
+    // Copy results back to host
     cudaMemcpy(h_C, d_C, sizeC, cudaMemcpyDeviceToHost);
     
-    // 计算性能指标
-    double ops = 2.0 * M * N * K; // 乘法和加法
+    // Calculate performance metrics
+    double ops = 2.0 * M * N * K; // Multiplications and additions
     double gflops = (ops * iterations) / (duration.count() * 1000.0);
     
     std::cout << "Basic: " << gflops << " GFLOPS, "
               << duration.count() / iterations << " μs per iteration" << std::endl;
     
-    // 测试共享内存版本
+    // Test shared memory version
     std::cout << "Testing Shared Memory Matrix Multiplication..." << std::endl;
+    cudaMemset(d_C, 0, sizeC);
+    
     start = std::chrono::high_resolution_clock::now();
     
     for (int i = 0; i < iterations; i++) {
@@ -189,31 +193,16 @@ void benchmarkMatrixMul(int M, int N, int K, int iterations = 10) {
     std::cout << "Shared: " << gflops << " GFLOPS, "
               << duration.count() / iterations << " μs per iteration" << std::endl;
     
-    // 测试CUDA流版本
-    std::cout << "Testing CUDA Stream Matrix Multiplication..." << std::endl;
-    
-    cudaStream_t stream1, stream2;
-    cudaStreamCreate(&stream1);
-    cudaStreamCreate(&stream2);
+    // Test stream version
+    std::cout << "Testing Stream Matrix Multiplication..." << std::endl;
+    cudaMemset(d_C, 0, sizeC);
     
     start = std::chrono::high_resolution_clock::now();
     
     for (int i = 0; i < iterations; i++) {
-        // 在流1中处理
-        cudaMemcpyAsync(d_A, h_A, sizeA, cudaMemcpyHostToDevice, stream1);
-        matrixMulStream<<<gridDim, blockDim, 0, stream1>>>(d_A, d_B, d_C, M, N, K);
-        cudaMemcpyAsync(h_C, d_C, sizeC, cudaMemcpyDeviceToHost, stream1);
-        
-        // 在流2中处理（如果有足够的数据）
-        if (i < iterations - 1) {
-            cudaMemcpyAsync(d_A, h_A, sizeA, cudaMemcpyHostToDevice, stream2);
-            matrixMulStream<<<gridDim, blockDim, 0, stream2>>>(d_A, d_B, d_C, M, N, K);
-            cudaMemcpyAsync(h_C, d_C, sizeC, cudaMemcpyDeviceToHost, stream2);
-        }
+        matrixMulStream<<<gridDim, blockDim>>>(d_A, d_B, d_C, M, N, K);
     }
-    
-    cudaStreamSynchronize(stream1);
-    cudaStreamSynchronize(stream2);
+    cudaDeviceSynchronize();
     
     end = std::chrono::high_resolution_clock::now();
     duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
@@ -222,17 +211,15 @@ void benchmarkMatrixMul(int M, int N, int K, int iterations = 10) {
     std::cout << "Stream: " << gflops << " GFLOPS, "
               << duration.count() / iterations << " μs per iteration" << std::endl;
     
-    // 验证结果
+    // Verify results
     std::cout << "Verifying results..." << std::endl;
-    if (verifyResult(h_A, h_B, h_C, M, N, K)) {
+    if (verifyMatrixMultiplication(h_A, h_B, h_C, M, N, K)) {
         std::cout << "Results verified successfully!" << std::endl;
     } else {
         std::cout << "Results verification failed!" << std::endl;
     }
     
-    // 清理资源
-    cudaStreamDestroy(stream1);
-    cudaStreamDestroy(stream2);
+    // Clean up resources
     cudaFree(d_A);
     cudaFree(d_B);
     cudaFree(d_C);
@@ -244,15 +231,25 @@ void benchmarkMatrixMul(int M, int N, int K, int iterations = 10) {
 
 int main() {
     std::cout << "CUDA Matrix Multiplication Benchmark" << std::endl;
-    std::cout << "===================================" << std::endl;
+    std::cout << "====================================" << std::endl;
     
-    // 测试不同大小的矩阵
-    int sizes[] = {512, 1024, 2048};
+    // Test different matrix configurations
+    struct MatrixConfig {
+        int M, N, K;
+        const char* name;
+    };
     
-    for (int size : sizes) {
-        std::cout << "\nTesting " << size << "x" << size << " matrices:" << std::endl;
+    MatrixConfig configs[] = {
+        {64, 64, 64, "64x64x64"},
+        {128, 128, 128, "128x128x128"},
+        {256, 256, 256, "256x256x256"},
+        {512, 512, 512, "512x512x512"}
+    };
+    
+    for (const auto& config : configs) {
+        std::cout << "\nTesting " << config.name << ":" << std::endl;
         std::cout << "----------------------------------------" << std::endl;
-        benchmarkMatrixMul(size, size, size);
+        benchmarkMatrixMultiplication(config.M, config.N, config.K);
     }
     
     return 0;
