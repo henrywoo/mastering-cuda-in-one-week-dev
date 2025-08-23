@@ -20,6 +20,8 @@ This tutorial is primarily based on **NVIDIA GPU** explanations. The author's de
 - **CUDA Version**: CUDA 12.4
 - **Compiler**: nvcc (NVIDIA CUDA Compiler)
 
+> 📋 **Environment Setup**: If you haven't installed the CUDA development environment yet, please refer to the [Environment Setup Guide](env.md) for installation and configuration.
+
 Although different GPU models may vary in specific parameters, the basic concepts and APIs of CUDA programming are consistent.
 
 ## GPU Hardware Basics
@@ -104,84 +106,127 @@ GPU memory systems adopt a hierarchical design, from fastest to slowest access s
 └───────────────────────────────────────────────────────────────────┘
 ```
 
-## CUDA Programming Model
+## CUDA Programming Model Basics
 
-### Thread Hierarchy
-
-CUDA programming model uses a three-level thread hierarchy: Grid → Block → Thread. This hierarchical design allows programmers to organize parallel work efficiently and utilize GPU resources optimally.
-
-**Grid (Grid)**: The top level of thread organization, representing the entire parallel task. A grid contains multiple thread blocks and can be configured as 1D, 2D, or 3D structure. The grid size determines how many thread blocks will be launched, and each thread block can be identified by its unique `blockIdx`.
-
-**Block (Block)**: The middle level, representing a group of cooperating threads. Threads within the same block can share data through shared memory and synchronize their execution. Each block can be configured as 1D, 2D, or 3D structure, and threads within a block can be identified by their unique `threadIdx`.
-
-**Thread (Thread)**: The smallest execution unit, representing a single parallel task. Each thread executes the same kernel function but processes different data elements. Threads are identified by their position within the block and the block's position within the grid.
-
-### Thread Index Calculation
-
-In CUDA programming, calculating the correct thread index is crucial for proper data access. The thread index calculation formula is:
+The best way to learn CUDA programming is through a concrete example. Let's first look at a complete vector addition program to get a feel for what CUDA code looks like:
 
 ```cuda
+// CUDA kernel function for vector addition
+__global__ void vector_add(const float* a, const float* b, float* c, int n) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < n) {
+        c[idx] = a[idx] + b[idx];
+    }
+}
+
+// Host code calling GPU kernel
+int main() {
+    // ... memory allocation and data preparation ...
+    
+    // Launch kernel, configure thread grid
+    int threadsPerBlock = 256;
+    int blocksPerGrid = (n + threadsPerBlock - 1) / threadsPerBlock;
+    vector_add<<<blocksPerGrid, threadsPerBlock>>>(d_a, d_b, d_c, n);
+    
+    // ... result retrieval and cleanup ...
+}
+```
+
+Looking at this code, you might have many questions: What is `__global__`? What does the strange `<<<>>>` syntax mean? Why do we need to calculate `blocksPerGrid`? These are exactly the core concepts we need to learn.
+
+We chose vector addition as our introductory example precisely because it's simple enough to let us focus on understanding CUDA's programming model without being distracted by complex algorithmic logic. Through this example, we will step by step enter the world of CUDA, understanding its design philosophy and operational mechanisms.
+
+## Understanding CUDA's Dual World
+
+Returning to our vector addition program, you might notice that the code is divided into two parts: one is the main function running on the CPU, and the other is the kernel function executing on the GPU. This is the core idea of CUDA programming—**separation of concerns**.
+
+### Host Code: CPU's Command Center
+
+In CUDA programming, the CPU plays the role of a "command center." It's responsible for controlling the overall program flow, like a conductor of an orchestra—not directly playing instruments, but coordinating the rhythm and sequence of the entire performance.
+
+The code on the CPU (which we call host code) is written in standard C++. Its main tasks include:
+- Preparing data, like a chef preparing ingredients
+- Allocating space in CPU memory, preparing "temporary storage points" for data
+- Allocating space in GPU memory, like preparing a "workbench" for the GPU
+- Launching GPU kernels, equivalent to giving the GPU the "start working" command
+- Retrieving calculation results from the GPU, like collecting completed works
+- Processing results and output, doing final organization and presentation
+
+### Device Code: GPU's Parallel Factory
+
+The code on the GPU (device code) focuses on computation itself. It uses CUDA C++ extension syntax, telling the compiler through keywords like `__global__`: "This code should run on the GPU."
+
+The GPU is like a massive parallel factory, where each thread is a small worker, simultaneously processing different data. In our vector addition, each thread is responsible for calculating the sum of one element, so we can process thousands of elements simultaneously, rather than calculating one by one like the CPU.
+
+## The Art of Thread Organization
+
+Now let's deeply understand how the GPU organizes these "small workers." Imagine if you were managing a large factory, how would you organize the workers?
+
+### Understanding Thread Hierarchy Through Factory Management
+
+The GPU adopts a three-layer management structure, just like a modern factory management system:
+
+**First Layer: Factory Overall (Grid)**
+The entire GPU is like a large factory, which we call Grid. This factory can run multiple production workshops simultaneously, each workshop responsible for different tasks. In our vector addition, the Grid is the total collection of all elements that need to be calculated.
+
+**Second Layer: Production Workshops (Block)**
+Each production workshop (Block) has a fixed number of workers who can collaborate with each other and share tools and materials. Threads within a Block can access the same shared memory, just like workers in a workshop can share a toolbox.
+
+**Third Layer: Workers (Thread)**
+Each worker (Thread) is responsible for specific computational tasks. In our example, each thread calculates the sum of one vector element. Although all threads execute the same code, they process different data.
+
+```
+Factory (Grid)
+├── Workshop 0 (Block 0)
+│   ├── Worker 0 (Thread 0)
+│   ├── Worker 1 (Thread 1)
+│   └── ...
+├── Workshop 1 (Block 1)
+│   ├── Worker 0 (Thread 0)
+│   ├── Worker 1 (Thread 1)
+│   └── ...
+└── ...
+```
+
+### Assigning Tasks to Each Worker
+
+Now the question is: How does each worker know which data they should process? This is the core of thread index calculation.
+
+In our vector addition, each thread needs to calculate:
+```cpp
 int idx = blockIdx.x * blockDim.x + threadIdx.x;
 ```
 
-**Real-life Analogy - School Class Roll Call System**:
-Imagine a school with multiple classes (Grid), each class has multiple rows (Block), and each row has multiple students (Thread). When calling roll, we need to find each student's position:
-- `blockIdx.x` = class number (which class)
-- `blockDim.x` = number of rows per class (how many rows in each class)
-- `threadIdx.x` = row number within the class (which row in the class)
-- `idx` = student's global position in the school
+This formula is like assigning work numbers to each worker in the factory. Let me explain it with a more relatable example from life:
 
-**Technical Explanation**:
-- `blockIdx.x`: Block index within the grid
-- `blockDim.x`: Number of threads per block (block dimension)
-- `threadIdx.x`: Thread index within the block
-- `idx`: Global thread index across the entire grid
+## Inspiration from School Roll Call System
 
-### Host vs Device Code
+Imagine a school roll call system. Suppose the school has 3 classes, each class has 4 students, and you need to number all students in the school. How would you design it?
 
-**Host Code**: Code that runs on the CPU, responsible for:
-- Memory allocation and management
-- Data transfer between CPU and GPU
-- Kernel launch and configuration
-- Result collection and processing
-- Resource cleanup
+**Class Structure**:
+- Class 0: Student 0 (ID 0), Student 1 (ID 1), Student 2 (ID 2), Student 3 (ID 3)
+- Class 1: Student 0 (ID 4), Student 1 (ID 5), Student 2 (ID 6), Student 3 (ID 7)  
+- Class 2: Student 0 (ID 8), Student 1 (ID 9), Student 2 (ID 10), Student 3 (ID 11)
 
-**Device Code**: Code that runs on the GPU, including:
-- `__global__` functions (kernels): Entry points for parallel execution
-- `__device__` functions: Helper functions called by kernels
-- `__host__` functions: Functions that can run on both CPU and GPU
-
-**Memory Management**:
-- Host memory: Managed by CPU, accessible only to host code
-- Device memory: Managed by GPU, accessible only to device code
-- Unified memory: Can be accessed by both host and device (CUDA 6.0+)
-
-### Thread Configuration
-
-**Why Choose 256 Threads Per Block?**
-256 is a commonly used balanced value in CUDA programming for several reasons:
-
-1. **Warp Alignment**: 256 = 8 × 32, perfectly aligned with Warp size (32 threads)
-2. **Resource Utilization**: Balances register usage, shared memory, and occupancy
-3. **Hardware Optimization**: Most GPU architectures are optimized for this size
-4. **Flexibility**: Easy to adjust for different problem sizes
-
-**How to Adjust Thread Configuration**:
-```cuda
-int threadsPerBlock = 256;  // Can be adjusted: 128, 512, 1024
-int blocksPerGrid = (n + threadsPerBlock - 1) / threadsPerBlock;
+**ID Calculation Formula**:
+```
+Student ID = Class Number × Students per Class + Student Number in Class
 ```
 
-**Formula Explanation**:
-- `blocksPerGrid = ceil(n / threadsPerBlock)`
-- Ensures all data elements are processed
-- Handles cases where data size is not perfectly divisible
+For example:
+- Class 1, Student 2: 1 × 4 + 2 = 6
+- Class 2, Student 1: 2 × 4 + 1 = 9
 
-**Why is n Hardcoded?**
-In this tutorial, `n = 3` is hardcoded for simplicity and demonstration purposes. In real applications, you would:
-- Accept `n` as a command-line parameter
-- Read `n` from configuration files
-- Calculate `n` based on input data size
+**Correspondence in CUDA**:
+```cpp
+int idx = blockIdx.x * blockDim.x + threadIdx.x;
+```
+- `blockIdx.x` = Class Number (0, 1, 2...)
+- `blockDim.x` = Students per Class (4)
+- `threadIdx.x` = Student Number in Class (0, 1, 2, 3)
+- `idx` = Global Student ID
+
+This way, each thread knows which element in the array it should process. Through this clever index design, the GPU can efficiently distribute work, giving each thread a clear task, thereby achieving true parallel computation.
 
 ## Kernel Functions
 
