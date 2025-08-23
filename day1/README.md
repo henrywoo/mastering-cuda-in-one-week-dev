@@ -1,13 +1,17 @@
-# Day 1: CUDA编程基础 - 向量加法
+# Day 1: CUDA编程基础 - 硬件架构与编程模型
 
 ## 概述
-今天我们将开始CUDA编程之旅，从最基础的向量加法开始。这是理解CUDA编程模型和GPU并行计算的第一步。
+今天我们将开始CUDA编程之旅，从GPU硬件架构和CUDA编程模型的基础概念开始。通过理解GPU的硬件特性、内存层次结构和线程执行模型，为后续的CUDA编程打下坚实基础。我们将通过向量加法和向量点积的示例来实践这些概念。
 
 ## 学习目标
-- 理解CUDA编程模型的基本概念
-- 学会编写第一个CUDA kernel
-- 掌握CUDA内存管理的基本操作
-- 理解线程块(Block)和网格(Grid)的概念
+- 理解CUDA编程模型的基本概念（Host vs Device, Kernel, Grid, Block, Thread）
+- 掌握GPU硬件架构和内存层次结构（SM, Warp, 寄存器, 共享内存等）
+- 学会编写简单的CUDA kernel函数（向量加法、向量点积）
+- 理解线程层次结构和索引计算（Grid-Block-Thread关系）
+- 掌握CUDA内存管理基础（cudaMalloc, cudaMemcpy等）
+- 学会使用GPU配置工具获取硬件参数和优化建议
+- 理解动态kernel加载机制（CUBIN文件, Driver API）
+- 掌握Warp执行特性和避免Warp分化的基本方法
 
 ## 开发环境说明
 本教程主要基于**NVIDIA GPU**进行讲解，笔者的开发环境使用：
@@ -18,19 +22,7 @@
 
 虽然不同GPU型号在具体参数上有所差异，但CUDA编程的基本概念和API是一致的。
 
-## 📁 相关文件快速链接
-本教程包含以下相关程序文件，点击即可查看：
 
-### 🚀 示例程序
-- [`vector_add.cu`](vector_add.cu) - 向量加法CUDA kernel示例
-- [`vector_dot.cu`](vector_dot.cu) - 向量点积CUDA kernel示例
-- [`run_cubin.cpp`](run_cubin.cpp) - CUBIN文件运行程序（CUDA Driver API示例）
-
-### 🔍 GPU信息获取工具
-- [`gpu_info.py`](gpu_info.py) - Python版本GPU信息获取（推荐）
-- [`gpu_info.cu`](gpu_info.cu) - CUDA版本完整硬件信息
-- [`gpu_info_cpp.cpp`](gpu_info_cpp.cpp) - C++版本系统信息检查
-- [`GPU_CONFIG_SUMMARY.md`](GPU_CONFIG_SUMMARY.md) - RTX 4090配置总结
 
 ## GPU硬件基础
 
@@ -437,55 +429,8 @@ extern "C" __global__ void vector_dot(const float *a, const float *b, float *res
 - **分支处理**: 如果warp内线程执行不同分支，会导致warp分化(warp divergence)
 - **性能影响**: warp分化会显著降低GPU的执行效率
 
-**Warp分化详解**：
-Warp分化是GPU编程中最重要的性能杀手之一。当warp内的32个线程遇到条件分支时，GPU无法让所有线程同时执行，必须串行处理每个分支：
-
-```cpp
-// 典型的warp分化场景
-__global__ void example_kernel(int *data, int n) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    
-    // 这个if语句会导致warp分化
-    if (data[idx] > 0) {
-        // 只有部分线程执行这个分支
-        data[idx] = data[idx] * 2;
-    } else {
-        // 其他线程执行这个分支
-        data[idx] = data[idx] / 2;
-    }
-}
-```
-
-**性能影响量化**：
-- **理想情况**: 所有线程执行相同路径，性能100%
-- **轻微分化**: 少数线程分支，性能下降10-20%
-- **严重分化**: 大量线程分支，性能下降50-80%
-- **完全分化**: 每个线程都不同路径，性能下降90%以上
-
-**实际优化技巧**：
-```cpp
-// 优化前：容易产生warp分化
-__global__ void unoptimized_kernel(int *data, int n) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx < n) {
-        if (data[idx] % 2 == 0) {  // 分支条件
-            data[idx] = data[idx] * 2;
-        } else {
-            data[idx] = data[idx] + 1;
-        }
-    }
-}
-
-// 优化后：减少warp分化
-__global__ void optimized_kernel(int *data, int n) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx < n) {
-        // 使用数学技巧避免分支
-        int is_even = 1 - (data[idx] % 2);  // 0或1
-        data[idx] = data[idx] * (1 + is_even) + (1 - is_even);
-    }
-}
-```
+**💡 重要概念回顾**：
+Warp是GPU调度的基本单位，每个Warp包含32个线程，采用SIMT执行模型。关于Warp分化的详细解释和优化技巧，请参考前面的"✍️什么是Warp分化(Divergence)？"部分。
 
 #### 线程块调度
 - **SM分配**: 线程块被分配到不同的流式多处理器(SM)
@@ -497,14 +442,8 @@ __global__ void optimized_kernel(int *data, int n) {
 - **优化**: 合并访问可以提高内存带宽利用率
 - **实现**: 使用合适的线程索引计算模式
 
-
-
-
-
-
-
-
-
+**💡 性能优化提示**：
+关于线程块调度优化、内存合并访问优化、共享内存使用等详细内容，将在Day 2的"性能分析和优化"部分深入讨论。
 
 
 ## 下一步
@@ -665,3 +604,19 @@ __global__ void optimized_kernel(int *data, int n) {
 - [CUDA开发者论坛](https://forums.developer.nvidia.com/)
 - [GPU计算社区](https://developer.nvidia.com/gpu-computing)
 - [深度学习学院](https://www.nvidia.com/en-us/deep-learning-ai/education-training/)
+
+---
+
+## 📁 相关文件快速链接
+本教程包含以下相关程序文件，点击即可查看：
+
+### 🚀 示例程序
+- [`vector_add.cu`](vector_add.cu) - 向量加法CUDA kernel示例
+- [`vector_dot.cu`](vector_dot.cu) - 向量点积CUDA kernel示例
+- [`run_cubin.cpp`](run_cubin.cpp) - CUBIN文件运行程序（CUDA Driver API示例）
+
+### 🔍 GPU信息获取工具
+- [`gpu_info.py`](gpu_info.py) - Python版本GPU信息获取（推荐）
+- [`gpu_info.cu`](gpu_info.cu) - CUDA版本完整硬件信息
+- [`gpu_info_cpp.cpp`](gpu_info_cpp.cpp) - C++版本系统信息检查
+- [`GPU_CONFIG_SUMMARY.md`](GPU_CONFIG_SUMMARY.md) - RTX 4090配置总结

@@ -1,16 +1,17 @@
-# Day 2: 深入CUDA底层 - 手动加载PTX代码
+# Day 2: CUDA调试与优化 - PTX加载与性能分析
 
 ## 概述
-今天我们将深入了解CUDA的底层机制，学习如何使用CUDA Driver API手动加载PTX代码，并重点掌握CUDA程序的调试技巧和性能优化方法。这将帮助我们理解CUDA编译流程、运行时机制，以及如何诊断和解决性能问题。
+今天我们将深入CUDA的调试和优化领域，学习如何使用CUDA Driver API手动加载PTX代码，掌握CUDA程序的调试技巧和性能分析方法。通过理解CUDA编译流程、运行时机制，以及使用专业的性能分析工具，我们将学会如何诊断性能瓶颈并应用优化策略。
 
 ## 学习目标
 - 理解CUDA编译流程：CUDA → PTX → CUBIN
-- 掌握CUDA Driver API的基本使用
-- 学会手动加载和执行PTX代码
-- 理解CUDA Runtime API vs Driver API的区别
-- 掌握CUDA程序的调试技巧和性能分析方法
-- 学会使用性能分析工具识别性能瓶颈
-- 理解并应用性能优化策略
+- 掌握CUDA Driver API的基本使用（cuInit, cuDeviceGet, cuCtxCreate等）
+- 学会手动加载和执行PTX代码（cuModuleLoadDataEx, cuLaunchKernel等）
+- 理解CUDA Runtime API vs Driver API的区别和适用场景
+- 掌握CUDA程序的调试技巧（错误处理、内存检查、边界验证等）
+- 学会使用性能分析工具（nvprof, Nsight Systems, Nsight Compute）
+- 理解并应用性能优化策略（内存合并访问、共享内存使用、寄存器优化等）
+- 掌握Warp分化优化和线程块配置优化技巧
 
 ## CUDA编译流程详解
 
@@ -317,3 +318,21 @@ nvprof --metrics all ./vector_add
 - [CUDA Driver API](https://docs.nvidia.com/cuda/cuda-driver-api/)
 - [PTX ISA Reference](https://docs.nvidia.com/cuda/parallel-thread-execution/)
 - [CUDA Context Management](https://docs.nvidia.com/cuda/cuda-driver-api/group__CUDA__CTX.html)
+
+---
+
+## 📁 相关文件快速链接
+本教程包含以下相关程序文件，点击即可查看：
+
+### 🚀 示例程序
+- [`run_ptx_manual.cu`](run_ptx_manual.cu) - PTX手动加载程序（CUDA Driver API示例）
+
+### 📊 性能分析工具
+- 使用`nvprof`进行命令行性能分析
+- 使用Nsight Systems进行系统级性能分析
+- 使用Nsight Compute进行kernel级性能分析
+
+### 🔧 调试工具
+- `cuda-memcheck` - 内存错误检查
+- `compute-sanitizer` - 运行时错误检测
+- `cuda-gdb` - CUDA调试器
