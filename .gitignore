@@ -2,12 +2,8 @@
 *.cubin
 
 # Executables (exclude these)
-mixed_precision_attention
-flash_attention
-grouped_query_attention
-sparse_attention
-run_ptx_manual
-vector_add
+# Exclude files without extensions (usually executables)
+day*/*[^.*]
 
 # Object files (exclude these)
 *.o
@@ -30,3 +26,14 @@ Thumbs.db
 
 # Keep PTX files (they are source code, not binaries)
 # *.ptx is NOT listed here intentionally
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build directories
+build/
+dist/
+out/
