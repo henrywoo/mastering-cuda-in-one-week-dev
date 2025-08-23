@@ -55,8 +55,6 @@ GPU（图形处理器）则采用并行执行架构，配备大量相对简单�
 
 现代GPU采用分层架构设计，从宏观到微观可以分为三个主要层次。最上层是GPU设备整体，包含多个流式多处理器（Streaming Multiprocessor, SM），这些SM是GPU的核心计算单元，每个SM都具备独立的指令调度和执行能力。在SM层之下是共享的L2缓存，为所有SM提供统一的数据缓存服务。最底层是全局内存，通常采用HBM（High Bandwidth Memory）或GDDR技术，为整个GPU提供大容量、高带宽的存储空间。
 
-
-
 #### 单个SM内部结构示意图
 ```
 ┌───────────────────────────────────────────────────────────────────┐
@@ -111,6 +109,34 @@ GPU的内存系统采用层次化设计，从访问速度最快到最慢依次�
 
 ## CUDA编程模型基础
 
+学习CUDA编程，最好的方式就是通过一个具体的例子来理解。让我们先看看一个完整的向量加法程序，感受一下CUDA代码是什么样子的：
+
+```cuda
+// 向量加法的CUDA kernel函数
+__global__ void vector_add(const float* a, const float* b, float* c, int n) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < n) {
+        c[idx] = a[idx] + b[idx];
+    }
+}
+
+// 主机代码调用GPU kernel
+int main() {
+    // ... 内存分配和数据准备 ...
+    
+    // 启动kernel，配置线程网格
+    int threadsPerBlock = 256;
+    int blocksPerGrid = (n + threadsPerBlock - 1) / threadsPerBlock;
+    vector_add<<<blocksPerGrid, threadsPerBlock>>>(d_a, d_b, d_c, n);
+    
+    // ... 结果获取和清理 ...
+}
+```
+
+看到这段代码，你可能会有很多疑问：`__global__`是什么？`<<<>>>`这个奇怪的语法又是什么意思？为什么需要计算`blocksPerGrid`？这些正是我们要学习的核心概念。
+
+我们选择向量加法作为入门示例，正是因为它足够简单，能够让我们专注于理解CUDA的编程模型，而不是被复杂的算法逻辑分散注意力。通过这个例子，我们将一步步地走进CUDA的世界，理解它的设计哲学和运行机制。
+
 ### 1. 主机代码 vs 设备代码
 
 在CUDA编程中，程序被分为两个主要部分，分别在不同的硬件上执行.
@@ -145,11 +171,11 @@ GPU的内存系统采用层次化设计，从访问速度最快到最慢依次�
 
 CUDA的线程组织采用三层层次结构：Grid（网格）、Block（线程块）和Thread（线程）。这种层次设计既提供了灵活性，又保持了高效的执行模式。
 
-**Grid（网格）**是CUDA程序执行时的最高层次组织单位。一个Grid包含多个Block，这些Block可以组织成1D、2D或3D的网格结构。Grid的维度通过`gridDim`变量定义，每个维度的大小决定了在该方向上可以启动多少个Block。Grid中的所有Block可以并行执行，GPU的硬件调度器会自动将这些Block分配到可用的流式多处理器（SM）上。Grid的设计允许程序处理不同规模的数据集，通过调整Grid的大小来匹配计算需求。
+**Grid（网格）** 是CUDA程序执行时的最高层次组织单位。一个Grid包含多个Block，这些Block可以组织成1D、2D或3D的网格结构。Grid的维度通过`gridDim`变量定义，每个维度的大小决定了在该方向上可以启动多少个Block。Grid中的所有Block可以并行执行，GPU的硬件调度器会自动将这些Block分配到可用的流式多处理器（SM）上。Grid的设计允许程序处理不同规模的数据集，通过调整Grid的大小来匹配计算需求。
 
-**Block（线程块）**是Grid中的基本执行单元，每个Block包含多个Thread。Block内的线程可以共享内存和进行同步操作，这是CUDA编程中线程协作的基础。Block的维度通过`blockDim`变量定义，同样支持1D、2D或3D的组织方式。每个Block被分配到一个SM上执行，SM会为Block分配必要的资源，如寄存器、共享内存等。
+**Block（线程块）** 是Grid中的基本执行单元，每个Block包含多个Thread。Block内的线程可以共享内存和进行同步操作，这是CUDA编程中线程协作的基础。Block的维度通过`blockDim`变量定义，同样支持1D、2D或3D的组织方式。每个Block被分配到一个SM上执行，SM会为Block分配必要的资源，如寄存器、共享内存等。
 
-**Thread（线程）**是CUDA程序中的最小执行单元，每个线程执行相同的kernel代码，但处理不同的数据。线程通过`threadIdx`变量来标识自己在Block中的位置，通过`blockIdx`来标识自己所在的Block在Grid中的位置。
+**Thread（线程）** 是CUDA程序中的最小执行单元，每个线程执行相同的kernel代码，但处理不同的数据。线程通过`threadIdx`变量来标识自己在Block中的位置，通过`blockIdx`来标识自己所在的Block在Grid中的位置。
 
 ```
 Grid (网格)
