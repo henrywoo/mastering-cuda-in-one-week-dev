@@ -2,8 +2,17 @@
 *.cubin
 
 # Executables (exclude these)
-# Exclude files without extensions (usually executables)
-day*/*[^.*]
+# Exclude all files in day* folders, then include only source files
+day*/*
+!day*/*.cu
+!day*/*.cpp
+!day*/*.c
+!day*/*.h
+!day*/*.hpp
+!day*/*.md
+!day*/*.txt
+!day*/*.ptx
+!day*/*.cubin
 
 # Object files (exclude these)
 *.o
@@ -23,9 +32,6 @@ Thumbs.db
 *~
 *.tmp
 *.log
-
-# Keep PTX files (they are source code, not binaries)
-# *.ptx is NOT listed here intentionally
 
 # IDE and editor files
 .vscode/
