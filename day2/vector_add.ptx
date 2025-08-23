@@ -1,0 +1,55 @@
+.version 8.4
+.target sm_89
+.address_size 64
+
+.visible .entry vector_add(
+    .param .u64 param_a,   // const float *a
+    .param .u64 param_b,   // const float *b
+    .param .u64 param_c,   // float *c
+    .param .u32 param_n    // int n
+)
+{
+    .reg .pred %p<2>;
+    .reg .f32  %f<4>;
+    .reg .b32  %r<6>;
+    .reg .b64  %rd<11>;
+
+    // Load kernel arguments
+    ld.param.u64 %rd1, [param_a];
+    ld.param.u64 %rd2, [param_b];
+    ld.param.u64 %rd3, [param_c];
+    ld.param.u32 %r2,  [param_n];
+
+    // Thread ID = blockIdx.x * blockDim.x + threadIdx.x
+    mov.u32 %r3, %ctaid.x;
+    mov.u32 %r4, %ntid.x;
+    mov.u32 %r5, %tid.x;
+    mad.lo.s32 %r1, %r3, %r4, %r5;
+
+    // Check if tid >= n → exit early
+    setp.ge.s32 %p1, %r1, %r2;
+    @%p1 bra DONE;
+
+    // Convert pointers to global space
+    cvta.to.global.u64 %rd4, %rd1;
+    mul.wide.s32 %rd5, %r1, 4;
+    add.s64 %rd6, %rd4, %rd5;
+
+    cvta.to.global.u64 %rd7, %rd2;
+    add.s64 %rd8, %rd7, %rd5;
+
+    // Load inputs
+    ld.global.f32 %f1, [%rd8];
+    ld.global.f32 %f2, [%rd6];
+
+    // Perform addition
+    add.f32 %f3, %f2, %f1;
+
+    // Write back result
+    cvta.to.global.u64 %rd9, %rd3;
+    add.s64 %rd10, %rd9, %rd5;
+    st.global.f32 [%rd10], %f3;
+
+DONE:
+    ret;
+}

@@ -1,0 +1,32 @@
+# CUDA compiled binaries (exclude these)
+*.cubin
+
+# Executables (exclude these)
+mixed_precision_attention
+flash_attention
+grouped_query_attention
+sparse_attention
+run_ptx_manual
+vector_add
+
+# Object files (exclude these)
+*.o
+*.obj
+
+# Libraries (exclude these)
+*.a
+*.lib
+*.so
+*.dll
+
+# OS specific files (exclude these)
+.DS_Store
+Thumbs.db
+
+# Temporary files (exclude these)
+*~
+*.tmp
+*.log
+
+# Keep PTX files (they are source code, not binaries)
+# *.ptx is NOT listed here intentionally
