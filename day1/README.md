@@ -20,7 +20,7 @@ This tutorial is primarily based on **NVIDIA GPU** explanations. The author's de
 - **CUDA Version**: CUDA 12.4
 - **Compiler**: nvcc (NVIDIA CUDA Compiler)
 
-> 📋 **Environment Setup**: If you haven't installed the CUDA development environment yet, please refer to the [Environment Setup Guide](./env.md) for installation and configuration.
+> 📋 **Environment Setup**: If you haven't installed the CUDA development environment(including `nvcc`) yet, please refer to the [Environment Setup Guide](./env.md) for installation and configuration.
 
 Although different GPU models may vary in specific parameters, the basic concepts and APIs of CUDA programming are consistent.
 
