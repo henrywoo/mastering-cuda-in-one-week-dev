@@ -404,6 +404,8 @@ nvcc -arch=sm_89 run_cubin.cpp -lcuda -o run_cubin
 ./run_cubin vector_dot.cubin    # 执行向量点积: [1,2,3] · [2,2,2] = 12
 ```
 
+**注意**: 这个程序需要CUDA驱动库支持，编译时需要链接`-lcuda`。
+
 #### 源码技术实现要点
 
 [`run_cubin.cpp`](run_cubin.cpp) 演示了动态kernel加载的完整技术流程。程序首先通过`cuModuleLoad()`动态加载指定的CUBIN文件，然后使用`cuModuleGetFunction()`获取kernel函数句柄。接下来程序会动态配置kernel的执行参数，包括内存分配、数据复制和kernel启动配置。整个过程展示了如何通过CUDA Driver API实现完整的资源管理和kernel执行。
@@ -414,7 +416,7 @@ nvcc -arch=sm_89 run_cubin.cpp -lcuda -o run_cubin
 - 原始名称：`vector_dot`
 - 修饰后名称：`_Z10vector_dotPKfS0_Pfi`
 
-**解决方案1：使用extern "C"（推荐）**
+**解决方案：使用extern "C"（推荐）**
 ```cpp
 // 在kernel函数前添加extern "C"
 extern "C" __global__ void vector_dot(const float *a, const float *b, float *result, int n) {
@@ -422,19 +424,11 @@ extern "C" __global__ void vector_dot(const float *a, const float *b, float *res
 }
 ```
 
-**解决方案2：使用nvcc编译选项**
-```bash
-# 编译时指定kernel名称，避免名称修饰
-nvcc -cubin -arch=sm_89 --device-name vector_dot -o vector_dot.cubin vector_dot.cu
-```
-
-使用`extern "C"`是最干净、最标准的做法，它让kernel名称保持简洁，提高了代码的可读性和维护性。
-
 #### 实际应用场景
 
 动态kernel加载技术在多个领域都有重要应用。在深度学习框架中，程序可以根据模型类型动态选择优化kernel；科学计算库能够根据数据类型选择精度最优的算法；图像处理应用可以根据图像特征选择最适合的滤波kernel；游戏引擎则能够根据场景复杂度动态选择渲染算法。这种技术让GPU计算变得更加智能和高效。
 
-**注意**: 这个程序需要CUDA驱动库支持，编译时需要链接`-lcuda`。
+
 
 ## CUDA执行模型
 
