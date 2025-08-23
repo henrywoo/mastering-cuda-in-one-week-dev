@@ -64,6 +64,8 @@ GPU memory systems adopt a hierarchical design, from fastest to slowest access s
 └───────────────────────────────────────────────────────────────────┘
 ```
 
+Modern GPUs adopt a layered architecture design, which can be divided into three main levels from macro to micro. The top level is the overall GPU device, containing multiple Streaming Multiprocessors (SM), which are the core computing units of the GPU. Each SM has independent instruction scheduling and execution capabilities. Below the SM level is the shared L2 cache, providing unified data caching services for all SMs. The bottom level is global memory, usually using HBM (High Bandwidth Memory) or GDDR technology, providing large-capacity, high-bandwidth storage space for the entire GPU.
+
 #### Single SM Internal Structure Diagram
 ```
 ┌───────────────────────────────────────────────────────────────────┐
@@ -84,6 +86,13 @@ GPU memory systems adopt a hierarchical design, from fastest to slowest access s
 │              (FP32, FP64, INT, Tensor Cores)                      │
 └───────────────────────────────────────────────────────────────────┘
 ```
+
+Each SM internally adopts fine-grained parallel design. At the top level of the SM, multiple Warps execute in parallel, sharing the SM's computing resources.
+
+> **Warp Concept Details**:
+A Warp is the basic unit of GPU scheduling, with each Warp containing 32 threads. Warps use the SIMT (Single Instruction, Multiple Thread) execution model, meaning all threads within the same Warp execute the same instruction but process different data. This design allows GPUs to efficiently utilize data parallelism. When multiple threads need to execute the same operation, only one instruction is needed to control 32 threads executing simultaneously. **🎯 Important Note**: Warp size 32 is a fixed design of NVIDIA GPU architecture, unchanged from the earliest Tesla architecture to the latest Blackwell architecture. The number 32 is carefully designed to fully utilize GPU's SIMT execution units.
+
+Below the Warp level, SMs are equipped with three key memory resources: Register File, Shared Memory, and L1 Cache. The register file provides the fastest storage access for each thread, shared memory supports data exchange and collaboration within thread blocks, and L1 cache provides an additional data caching layer. At the bottom level of the SM, various dedicated functional units are configured, including FP32, FP64 floating-point arithmetic units, integer arithmetic units, and Tensor Cores and other dedicated accelerators.
 
 #### GPU Memory Hierarchy Diagram
 ```
