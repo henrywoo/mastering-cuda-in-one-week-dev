@@ -497,136 +497,15 @@ __global__ void optimized_kernel(int *data, int n) {
 - **优化**: 合并访问可以提高内存带宽利用率
 - **实现**: 使用合适的线程索引计算模式
 
-### 性能优化基础
 
-#### 内存访问模式
-```cpp
-// 好的访问模式 - 合并访问
-int idx = blockIdx.x * blockDim.x + threadIdx.x;
-float value = data[idx];  // 连续访问
 
-// 避免的访问模式 - 分散访问
-int idx = blockIdx.x * blockDim.x + threadIdx.x;
-float value = data[idx * stride];  // 可能不连续
-```
 
-#### 共享内存使用
-```cpp
-__shared__ float shared_data[BLOCK_SIZE];
 
-// 协作加载数据
-int tid = threadIdx.x;
-shared_data[tid] = global_data[blockIdx.x * blockDim.x + tid];
-__syncthreads();  // 确保所有线程都加载完成
 
-// 使用共享内存进行计算
-float result = shared_data[tid] + shared_data[tid + 1];
-```
 
-#### 寄存器优化
-```cpp
-// 避免寄存器溢出
-__global__ void optimized_kernel(float *data) {
-    // 使用寄存器存储频繁访问的值
-    float local_sum = 0.0f;
-    for (int i = 0; i < 100; i++) {
-        local_sum += data[i];
-    }
-    // 最后一次性写入全局内存
-}
-```
 
-## 性能分析
 
-### 为什么选择256线程/块？
-- GPU的warp大小是32，256是32的倍数
-- 平衡了寄存器使用和线程切换开销
-- 适合大多数GPU架构
 
-### 内存带宽
-- 每个线程读取2个float，写入1个float
-- 理论内存带宽利用率取决于GPU架构
-
-### 性能指标计算
-
-#### 理论峰值性能
-```cpp
-// RTX 4090的理论峰值
-float peak_gflops = 16384 * 2 * 2.52 / 1000;  // 约165 TFLOPS (FP32)
-float peak_memory_bandwidth = 1008.0;  // GB/s
-```
-
-#### 实际性能测量
-```cpp
-// 使用CUDA事件测量时间
-cudaEvent_t start, stop;
-cudaEventCreate(&start);
-cudaEventCreate(&stop);
-
-cudaEventRecord(start);
-vector_add<<<blocksPerGrid, threadsPerBlock>>>(d_a, d_b, d_c, n);
-cudaEventRecord(stop);
-
-cudaEventSynchronize(stop);
-float milliseconds = 0;
-cudaEventElapsedTime(&milliseconds, start, stop);
-
-// 计算性能
-float gflops = (n * 2) / (milliseconds * 1e6);  // 2个浮点运算
-float memory_bandwidth = (n * 3 * sizeof(float)) / (milliseconds * 1e6);  // GB/s
-```
-
-### 性能优化策略
-
-#### 1. 内存访问优化
-- **合并访问**: 确保线程访问连续内存地址
-- **内存对齐**: 使用适当的内存对齐
-- **缓存友好**: 利用GPU的L2缓存
-
-#### 2. 计算优化
-- **循环展开**: 减少循环开销
-- **指令级并行**: 利用GPU的指令流水线
-- **数学函数**: 使用快速数学函数(`__expf`, `__logf`等)
-
-#### 3. 资源利用
-- **占用率**: 保持足够的线程块在SM上
-- **寄存器使用**: 平衡寄存器数量和线程数量
-- **共享内存**: 合理使用共享内存减少全局内存访问
-
-### 性能分析工具
-
-#### NVIDIA Visual Profiler
-```bash
-# 使用nvprof进行性能分析
-nvprof ./vector_add
-
-# 详细分析
-nvprof --metrics all ./vector_add
-```
-
-#### Nsight Systems
-- 系统级性能分析
-- 显示CPU和GPU的协作情况
-- 识别瓶颈和优化机会
-
-#### Nsight Compute
-- 详细的kernel性能分析
-- 寄存器使用、共享内存使用等指标
-- 提供具体的优化建议
-
-## 常见问题和调试技巧
-
-### 1. 内存错误
-- 使用`cuda-memcheck`工具检查内存访问错误
-- 确保所有内存分配都成功
-
-### 2. Kernel启动失败
-- 检查线程块配置是否超出硬件限制
-- 使用`cudaGetLastError()`检查错误
-
-### 3. 性能优化
-- 使用`nvprof`或Nsight Systems分析性能
-- 监控内存传输和kernel执行时间
 
 ## 下一步
 明天我们将学习如何手动加载PTX代码，深入了解CUDA的底层机制。
