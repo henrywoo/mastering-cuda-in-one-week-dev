@@ -100,11 +100,13 @@ GPU memory systems adopt a hierarchical design, from fastest to slowest access s
 │  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐          │
 │  │   Constant    │  │   Texture     │  │    Global     │          │
 │  │    Memory     │  │    Memory     │  │    Memory     │          │
-│  │   (Cached)    │  │  (Optimized)  │  │   (Largest)   │          │
+│  │   (Cached)    │  │  (Optimized)  │  │   (Slowest)   │          │
 │  │               │  │               │  │               │          │
 │  └───────────────┘  └───────────────┘  └───────────────┘          │
 └───────────────────────────────────────────────────────────────────┘
 ```
+
+GPU memory systems adopt a hierarchical design, from fastest to slowest access speed: registers, shared memory, local memory, constant memory, texture memory, and global memory. Registers are private storage space for each thread, with access latency of only 1 clock cycle, but limited capacity, with each thread able to use at most 255 32-bit registers. Shared memory is storage space shared within thread blocks, with access latency of 1-2 clock cycles, capacity of 48KB per thread block, suitable for storing frequently accessed intermediate results and implementing thread collaboration. Local memory, although nominally thread-private, is actually stored in global memory, with high access latency (200-800 clock cycles), mainly used for storing large arrays and register overflow data. Constant memory has caching mechanisms, suitable for storing kernel parameters and lookup tables, performing best when multiple threads access the same address. Texture memory is optimized for 2D/3D spatial locality access, suitable for image processing and scientific computing applications. Global memory has the largest capacity but highest access latency, serving as the main storage space shared by all threads. Its performance largely depends on memory access patterns, with coalesced access significantly improving memory bandwidth utilization.
 
 ## CUDA Programming Model Basics
 
