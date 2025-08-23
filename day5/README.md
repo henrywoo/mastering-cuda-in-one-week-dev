@@ -411,3 +411,25 @@ nvcc -O3 -arch=sm_70 -lcublas -o transformer transformer.cu
 - [CUDA Performance Optimization](https://developer.nvidia.com/blog/cuda-pro-tip-increase-performance-with-vectorized-memory-access/)
 - [NVIDIA Transformer Engine](https://docs.nvidia.com/deeplearning/transformer-engine/)
 - [TensorRT Optimization Guide](https://docs.nvidia.com/deeplearning/tensorrt/developer-guide/index.html)
+
+---
+
+## 📁 相关文件快速链接
+本教程包含以下相关程序文件，点击即可查看：
+
+### 🚀 示例程序
+- [`self_attention.cu`](self_attention.cu) - 基础自注意力实现
+- [`multi_head_attention.cu`](multi_head_attention.cu) - 多头注意力实现
+- [`transformer_block.cu`](transformer_block.cu) - Transformer块实现
+- [`transformer.cu`](transformer.cu) - 完整Transformer实现
+
+### 📊 性能分析工具
+- 使用`nvprof`进行命令行性能分析
+- 使用Nsight Systems进行系统级性能分析
+- 使用Nsight Compute进行kernel级性能分析
+
+### 🔧 优化技巧
+- 共享内存优化
+- 内存访问模式优化
+- 计算融合优化
+- 并行化策略优化

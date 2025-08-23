@@ -380,3 +380,25 @@ nvcc -O3 -arch=sm_70 -I/path/to/cutlass/include -o matrix_mul_cutlass matrix_mul
 - [CUDA Performance Optimization](https://developer.nvidia.com/blog/cuda-pro-tip-increase-performance-with-vectorized-memory-access/)
 - [GPU Memory Hierarchy](https://developer.nvidia.com/blog/how-access-global-memory-efficiently-in-cuda-kernels/)
 - [Shared Memory Bank Conflicts](https://developer.nvidia.com/blog/using-shared-memory-cuda-cc/)
+
+---
+
+## 📁 相关文件快速链接
+本教程包含以下相关程序文件，点击即可查看：
+
+### 🚀 示例程序
+- [`matrix_mul.cu`](matrix_mul.cu) - 基础矩阵乘法实现
+- [`matrix_mul_optimized.cu`](matrix_mul_optimized.cu) - 优化版本矩阵乘法
+- [`matrix_mul_cublas.cu`](matrix_mul_cublas.cu) - cuBLAS版本矩阵乘法
+- [`matrix_mul_cutlass.cu`](matrix_mul_cutlass.cu) - CUTLASS版本矩阵乘法
+
+### 📊 性能分析工具
+- 使用`nvprof`进行命令行性能分析
+- 使用Nsight Systems进行系统级性能分析
+- 使用Nsight Compute进行kernel级性能分析
+
+### 🔧 优化技巧
+- 共享内存使用和tile优化
+- CUDA流和异步操作
+- 内存合并访问优化
+- 向量化内存访问

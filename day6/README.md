@@ -224,6 +224,16 @@ nvcc -O3 -arch=sm_70 -o grouped_query_attention grouped_query_attention.cu
 ## 混合精度注意力优化
 
 ### 1. 混合精度原理
+在传统的深度学习训练中，模型参数、梯度和激活值都使用 FP32（单精度浮点数） 进行存储和计算。FP32 提供了广泛的数值范围和高精度，足以满足大多数科学计算的需求。然而，随着模型规模的爆炸式增长（例如 GPT-4、Llama 3 等），使用 FP32 带来了两个主要挑战：
+
+- 巨大的显存（VRAM）占用：每个 FP32 变量需要 4 个字节。一个拥有数十亿甚至上万亿参数的模型，其参数本身就需要数百 GB 的显存。
+- 冗长的训练时间：FP32 计算需要更多的晶体管和能耗，导致计算速度相对较慢。
+
+FP16（半精度浮点数） 应运而生。它使用 2 个字节来存储数据，其存储空间是 FP32 的一半，但代价是数值范围更窄，精度也更低。混合精度训练的核心思想是巧妙地结合 FP16 和 FP32 的优势：
+
+- 用 FP16 节省显存和加速计算：在训练的大部分时间里，将模型参数和激活值存储为 FP16。这能立即将显存占用减半，从而允许你训练更大、更复杂的模型。
+- 用 FP32 保持数值稳定性：在某些对精度敏感的操作中，例如梯度的累加，或者 Softmax 函数（在注意力机制中至关重要），继续使用 FP32 来避免 下溢（underflow） 或 溢出（overflow）。下溢是指数值过小被舍入为零，而溢出则是数值过大超出 FP16 的表示范围。
+
 混合精度使用FP16进行计算，FP32进行累加，在保持精度的同时提升性能：
 
 ```
@@ -539,3 +549,27 @@ nvcc -O3 -arch=sm_90a -lcublas -o llm_optimization llm_optimization.cu
 - [GPU Memory Management](https://developer.nvidia.com/blog/unified-memory-cuda-beginners/)
 - [Attention Optimization Techniques](https://developer.nvidia.com/blog/optimizing-transformer-models-for-inference/)
 - [Large Language Model Optimization](https://developer.nvidia.com/blog/optimizing-large-language-models-for-inference/)
+
+---
+
+## 📁 相关文件快速链接
+本教程包含以下相关程序文件，点击即可查看：
+
+### 🚀 示例程序
+- [`flash_attention.cu`](flash_attention.cu) - Flash Attention实现
+- [`paged_attention.cu`](paged_attention.cu) - Paged Attention实现
+- [`grouped_query_attention.cu`](grouped_query_attention.cu) - Grouped Query Attention实现
+- [`sparse_attention.cu`](sparse_attention.cu) - 稀疏注意力实现
+- [`mixed_precision_attention.cu`](mixed_precision_attention.cu) - 混合精度注意力实现
+
+### 📊 性能分析工具
+- 使用`nvprof`进行命令行性能分析
+- 使用Nsight Systems进行系统级性能分析
+- 使用Nsight Compute进行kernel级性能分析
+
+### 🔧 优化技巧
+- Flash Attention分块优化
+- Paged Attention内存管理
+- 稀疏注意力模式优化
+- 混合精度计算优化
+- Tensor Core指令优化

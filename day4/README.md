@@ -519,3 +519,25 @@ nvcc -O3 -arch=sm_70 -lcudnn -lcublas -o cnn_conv_full cnn_conv.cu
 - [ResNet Architecture](https://arxiv.org/abs/1512.03385)
 - [VGG Architecture](https://arxiv.org/abs/1409.1556)
 - [AlexNet Architecture](https://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional-neural-networks)
+
+---
+
+## 📁 相关文件快速链接
+本教程包含以下相关程序文件，点击即可查看：
+
+### 🚀 示例程序
+- [`cnn_conv.cu`](cnn_conv.cu) - 基础2D卷积实现
+- [`cnn_conv_optimized.cu`](cnn_conv_optimized.cu) - 优化版本卷积
+- [`cnn_conv_cudnn.cu`](cnn_conv_cudnn.cu) - cuDNN版本卷积
+- [`cnn_forward.cu`](cnn_forward.cu) - CNN前向传播实现
+
+### 📊 性能分析工具
+- 使用`nvprof`进行命令行性能分析
+- 使用Nsight Systems进行系统级性能分析
+- 使用Nsight Compute进行kernel级性能分析
+
+### 🔧 优化技巧
+- 共享内存tile优化
+- 内存合并访问优化
+- Winograd卷积算法
+- 混合精度计算

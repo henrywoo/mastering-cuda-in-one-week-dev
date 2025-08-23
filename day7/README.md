@@ -622,3 +622,27 @@ nvcc -O3 -arch=sm_90a -Xptxas -O3,-v -lcublas -o full_optimized performance_tuni
 - [PTX Assembly Reference](https://docs.nvidia.com/cuda/parallel-thread-execution/)
 - [GPU Performance Counters](https://docs.nvidia.com/cuda/profiler-guide/)
 - [NVIDIA Developer Blog](https://developer.nvidia.com/blog/)
+
+---
+
+## 📁 相关文件快速链接
+本教程包含以下相关程序文件，点击即可查看：
+
+### 🚀 示例程序
+- [`performance_tuning.cu`](performance_tuning.cu) - 性能调优示例程序
+- [`blackwell_tuning.cu`](blackwell_tuning.cu) - Blackwell架构优化示例
+- [`memory_optimization.cu`](memory_optimization.cu) - 内存优化示例
+- [`instruction_optimization.cu`](instruction_optimization.cu) - 指令优化示例
+
+### 📊 性能分析工具
+- 使用`nvprof`进行命令行性能分析
+- 使用Nsight Systems进行系统级性能分析
+- 使用Nsight Compute进行kernel级性能分析
+- 使用GPU性能计数器进行详细分析
+
+### 🔧 优化技巧
+- 内存层次结构优化
+- 指令级并行优化
+- 线程级并行优化
+- 架构特定优化
+- Tensor Core指令优化
