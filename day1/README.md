@@ -1,53 +1,51 @@
-# Day 1: CUDA编程基础 - 硬件架构与编程模型
+# Day 1: CUDA Programming Basics - Hardware Architecture and Programming Model
 
-## 概述
-今天我们将开始CUDA编程之旅，从GPU硬件架构和CUDA编程模型的基础概念开始。通过理解GPU的硬件特性、内存层次结构和线程执行模型，为后续的CUDA编程打下坚实基础。我们将通过向量加法和向量点积的示例来实践这些概念。
+## Overview
+Today we will begin our CUDA programming journey, starting with the fundamental concepts of GPU hardware architecture and CUDA programming model. By understanding GPU hardware characteristics, memory hierarchy, and thread execution model, we will lay a solid foundation for subsequent CUDA programming. We will practice these concepts through vector addition and vector dot product examples.
 
-## 学习目标
-- 理解CUDA编程模型的基本概念（Host vs Device, Kernel, Grid, Block, Thread）
-- 掌握GPU硬件架构和内存层次结构（SM, Warp, 寄存器, 共享内存等）
-- 学会编写简单的CUDA kernel函数（向量加法、向量点积）
-- 理解线程层次结构和索引计算（Grid-Block-Thread关系）
-- 掌握CUDA内存管理基础（cudaMalloc, cudaMemcpy等）
-- 学会使用GPU配置工具获取硬件参数和优化建议
-- 理解动态kernel加载机制（CUBIN文件, Driver API）
-- 掌握Warp执行特性和避免Warp分化的基本方法
+## Learning Objectives
+- Understand basic concepts of CUDA programming model (Host vs Device, Kernel, Grid, Block, Thread)
+- Master GPU hardware architecture and memory hierarchy (SM, Warp, registers, shared memory, etc.)
+- Learn to write simple CUDA kernel functions (vector addition, vector dot product)
+- Understand thread hierarchy and index calculation (Grid-Block-Thread relationship)
+- Master basic CUDA memory management (cudaMalloc, cudaMemcpy, etc.)
+- Learn to use GPU configuration tools to obtain hardware parameters and optimization suggestions
+- Understand dynamic kernel loading mechanism (CUBIN files, Driver API)
+- Master Warp execution characteristics and basic methods to avoid Warp divergence
 
-## 开发环境说明
-本教程主要基于**NVIDIA GPU**进行讲解，笔者的开发环境使用：
-- **操作系统**: Linux Ubuntu 22.04 LTS
-- **GPU**: NVIDIA GeForce RTX 4090 (Ada Lovelace架构)
-- **CUDA版本**: CUDA 12.4
-- **编译器**: nvcc (NVIDIA CUDA Compiler)
+## Development Environment
+This tutorial is primarily based on **NVIDIA GPU** explanations. The author's development environment uses:
+- **Operating System**: Linux Ubuntu 22.04 LTS
+- **GPU**: NVIDIA GeForce RTX 4090 (Ada Lovelace architecture)
+- **CUDA Version**: CUDA 12.4
+- **Compiler**: nvcc (NVIDIA CUDA Compiler)
 
-虽然不同GPU型号在具体参数上有所差异，但CUDA编程的基本概念和API是一致的。
+Although different GPU models may vary in specific parameters, the basic concepts and APIs of CUDA programming are consistent.
 
+## GPU Hardware Basics
 
+### GPU vs CPU Architecture Differences
 
-## GPU硬件基础
+#### CPU Architecture Characteristics
+CPU (Central Processing Unit) adopts a serial execution architecture, equipped with a small number of powerful computing cores. Each core has complex control logic and branch prediction capabilities, able to intelligently predict program execution paths and achieve out-of-order execution, thereby maximizing instruction-level parallelism. CPUs have a massive multi-level cache system, including L1, L2, L3 caches, which can effectively reduce memory access latency and improve data locality. Since CPU's design goal is universality, it can efficiently handle various types of computing tasks, from complex control logic to simple arithmetic operations.
 
-### GPU vs CPU架构差异
+#### GPU Architecture Characteristics
+GPU (Graphics Processing Unit) adopts a parallel execution architecture, equipped with a large number of relatively simple computing cores. Although individual cores are not as powerful as CPU cores, there are many of them, capable of simultaneously processing large numbers of similar parallel tasks. GPUs use the SIMT (Single Instruction, Multiple Thread) execution model, where multiple threads execute the same instruction but process different data. This design is particularly suitable for data-parallel compute-intensive tasks. In terms of memory systems, GPUs adopt a hierarchical memory design, including global memory, shared memory, registers, and other levels, each with different access latency and capacity characteristics. Since GPU's design goal is clear, it excels in parallel computing fields such as image processing, scientific computing, and deep learning, but is less efficient than CPUs in complex serial tasks.
 
-#### CPU架构特点
-CPU（中央处理器）采用串行执行架构，配备少量但功能强大的计算核心。每个核心都具备复杂的控制逻辑和分支预测能力，能够智能地预测程序执行路径并实现乱序执行，从而最大化指令级并行性。CPU拥有庞大的多级缓存系统，包括L1、L2、L3缓存，这些缓存层次能够有效减少内存访问延迟，提高数据局部性。由于CPU的设计目标是通用性，它能够高效地处理各种类型的计算任务，从复杂的控制逻辑到简单的算术运算都能胜任。
+### GPU Hardware Architecture and Memory Layout
 
-#### GPU架构特点
-GPU（图形处理器）则采用并行执行架构，配备大量相对简单的计算核心。这些核心虽然单个能力不如CPU核心强大，但数量众多，能够同时处理大量相似的并行任务。GPU采用SIMT（Single Instruction, Multiple Thread）执行模型，即多个线程执行相同的指令但处理不同的数据，这种设计特别适合数据并行的计算密集型任务。在内存系统方面，GPU采用层次化的内存设计，包括全局内存、共享内存、寄存器等多个层次，每个层次都有不同的访问延迟和容量特性。由于GPU的设计目标明确，它在图像处理、科学计算、深度学习等并行计算领域表现出色，但在复杂的串行任务上不如CPU高效。
+Modern GPUs adopt a layered architecture design, which can be divided into three main levels from macro to micro. The top level is the overall GPU device, containing multiple Streaming Multiprocessors (SM), which are the core computing units of the GPU. Each SM has independent instruction scheduling and execution capabilities. Below the SM level is the shared L2 cache, providing unified data caching services for all SMs. The bottom level is global memory, usually using HBM (High Bandwidth Memory) or GDDR technology, providing large-capacity, high-bandwidth storage space for the entire GPU.
 
-### GPU硬件架构和内存布局
+Each SM internally adopts fine-grained parallel design. At the top level of the SM, multiple Warps execute in parallel, sharing the SM's computing resources.
 
-现代GPU采用分层架构设计，从宏观到微观可以分为三个主要层次。最上层是GPU设备整体，包含多个流式多处理器（Streaming Multiprocessor, SM），这些SM是GPU的核心计算单元，每个SM都具备独立的指令调度和执行能力。在SM层之下是共享的L2缓存，为所有SM提供统一的数据缓存服务。最底层是全局内存，通常采用HBM（High Bandwidth Memory）或GDDR技术，为整个GPU提供大容量、高带宽的存储空间。
+> **Warp Concept Details**:
+A Warp is the basic unit of GPU scheduling, with each Warp containing 32 threads. Warps use the SIMT (Single Instruction, Multiple Thread) execution model, meaning all threads within the same Warp execute the same instruction but process different data. This design allows GPUs to efficiently utilize data parallelism. When multiple threads need to execute the same operation, only one instruction is needed to control 32 threads executing simultaneously. **🎯 Important Note**: Warp size 32 is a fixed design of NVIDIA GPU architecture, unchanged from the earliest Tesla architecture to the latest Blackwell architecture. The number 32 is carefully designed to fully utilize GPU's SIMT execution units.
 
-每个SM内部采用细粒度的并行设计。在SM的顶层，多个Warp并行执行，这些Warp共享SM的计算资源。
+Below the Warp level, SMs are equipped with three key memory resources: Register File, Shared Memory, and L1 Cache. The register file provides the fastest storage access for each thread, shared memory supports data exchange and collaboration within thread blocks, and L1 cache provides an additional data caching layer. At the bottom level of the SM, various dedicated functional units are configured, including FP32, FP64 floating-point arithmetic units, integer arithmetic units, and Tensor Cores and other dedicated accelerators.
 
-> **Warp概念详解**：
-Warp是GPU调度的基本单位，每个Warp包含32个线程。Warp采用SIMT（Single Instruction, Multiple Thread）执行模型，即同一Warp内的所有线程执行相同的指令，但处理不同的数据。这种设计使得GPU能够高效地利用数据并行性，当多个线程需要执行相同操作时，只需要一条指令就能控制32个线程同时执行。**🎯重要说明**: Warp大小32是NVIDIA GPU架构的固定设计，从最早的Tesla架构到最新的Blackwell架构都保持不变。32这个数字是经过精心设计以便能够充分利用GPU的SIMT执行单元.
+GPU memory systems adopt a hierarchical design, from fastest to slowest access speed: registers, shared memory, local memory, constant memory, texture memory, and global memory. Registers are private storage space for each thread, with access latency of only 1 clock cycle, but limited capacity, with each thread able to use at most 255 32-bit registers. Shared memory is storage space shared within thread blocks, with access latency of 1-2 clock cycles, capacity of 48KB per thread block, suitable for storing frequently accessed intermediate results and implementing thread collaboration. Local memory, although nominally thread-private, is actually stored in global memory, with high access latency (200-800 clock cycles), mainly used for storing large arrays and register overflow data. Constant memory has caching mechanisms, suitable for storing kernel parameters and lookup tables, performing best when multiple threads access the same address. Texture memory is optimized for 2D/3D spatial locality access, suitable for image processing and scientific computing applications. Global memory has the largest capacity but highest access latency, serving as the main storage space shared by all threads. Its performance largely depends on memory access patterns, with coalesced access significantly improving memory bandwidth utilization.
 
-在Warp层之下，SM配备了三种关键的内存资源：寄存器文件（Register File）、共享内存（Shared Memory）和L1缓存。寄存器文件为每个线程提供最快的存储访问，共享内存支持线程块内的数据交换和协作，L1缓存则提供额外的数据缓存层。在SM的最底层，配置了各种专用功能单元，包括FP32、FP64浮点运算单元、整数运算单元以及Tensor Core等专用加速器。
-
-GPU的内存系统采用层次化设计，从访问速度最快到最慢依次为：寄存器、共享内存、本地内存、常量内存、纹理内存和全局内存。寄存器是每个线程私有的存储空间，访问延迟仅需1个时钟周期，但容量有限，每个线程最多只能使用255个32位寄存器。共享内存是线程块内共享的存储空间，访问延迟为1-2个时钟周期，容量为每个线程块48KB，适合存储频繁访问的中间结果和实现线程间协作。本地内存虽然名义上是线程私有，但实际存储在全局内存中，访问延迟较高（200-800个时钟周期），主要用于存储大型数组和寄存器溢出的数据。常量内存具有缓存机制，适合存储kernel参数和查找表，当多个线程访问相同地址时性能最佳。纹理内存针对2D/3D空间局部性访问进行了优化，适合图像处理和科学计算应用。全局内存容量最大但访问延迟最高，是所有线程共享的主要存储空间，其性能很大程度上依赖于内存访问模式，合并访问（Coalesced Access）可以显著提高内存带宽利用率。
-
-#### GPU整体架构示意图
+#### GPU Overall Architecture Diagram
 ```
 ┌───────────────────────────────────────────────────────────────────┐
 │                          GPU Device                               │
@@ -64,7 +62,7 @@ GPU的内存系统采用层次化设计，从访问速度最快到最慢依次�
 └───────────────────────────────────────────────────────────────────┘
 ```
 
-#### 单个SM内部结构示意图
+#### Single SM Internal Structure Diagram
 ```
 ┌───────────────────────────────────────────────────────────────────┐
 │                           Single SM                               │
@@ -85,7 +83,7 @@ GPU的内存系统采用层次化设计，从访问速度最快到最慢依次�
 └───────────────────────────────────────────────────────────────────┘
 ```
 
-#### GPU内存层次结构示意图
+#### GPU Memory Hierarchy Diagram
 ```
 ┌───────────────────────────────────────────────────────────────────┐
 │                        Memory Hierarchy                           │
@@ -98,525 +96,420 @@ GPU的内存系统采用层次化设计，从访问速度最快到最慢依次�
 │  └───────────────┘  └───────────────┘  └───────────────┘          │
 ├───────────────────────────────────────────────────────────────────┤
 │  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐          │
-│  │  Constant     │  │  Texture      │  │  Global       │          │
-│  │  Memory       │  │  Memory       │  │  Memory       │          │
-│  │  (Cached)     │  │  (Optimized)  │  │  (Slowest)    │          │
+│  │   Constant    │  │   Texture     │  │    Global     │          │
+│  │    Memory     │  │    Memory     │  │    Memory     │          │
+│  │   (Cached)    │  │  (Optimized)  │  │   (Largest)   │          │
 │  │               │  │               │  │               │          │
 │  └───────────────┘  └───────────────┘  └───────────────┘          │
 └───────────────────────────────────────────────────────────────────┘
 ```
 
-### GPU内存层次详解
+## CUDA Programming Model
 
-GPU的内存系统采用分层架构设计，每一层都有其特定的访问特性和性能特征。理解这些内存层次对于编写高效的CUDA程序至关重要。
+### Thread Hierarchy
 
-**寄存器（Registers）**是GPU内存层次中最快的存储单元，每个线程都拥有自己私有的寄存器空间。在最新的GPU架构中，每个线程最多可以使用255个32位寄存器，这些寄存器主要用于存储频繁访问的变量和计算过程中的中间结果。由于寄存器直接集成在SM（流多处理器）内部，访问延迟极低，是性能优化的关键。
+CUDA programming model uses a three-level thread hierarchy: Grid → Block → Thread. This hierarchical design allows programmers to organize parallel work efficiently and utilize GPU resources optimally.
 
-**共享内存（Shared Memory）**是线程块内所有线程共享的高速缓存，其访问延迟比全局内存低得多。在现代GPU架构中，每个线程块最多可以分配48KB的共享内存（以计算能力8.x为例）。共享内存的主要用途是促进线程间的数据交换和协作计算，特别适合需要频繁数据共享的算法，如矩阵乘法和卷积运算。
+**Grid (Grid)**: The top level of thread organization, representing the entire parallel task. A grid contains multiple thread blocks and can be configured as 1D, 2D, or 3D structure. The grid size determines how many thread blocks will be launched, and each thread block can be identified by its unique `blockIdx`.
 
-**本地内存（Local Memory）**虽然名义上是每个线程私有的，但实际上数据存储在全局内存中。当线程需要存储大型数组或寄存器空间不足时，编译器会自动将数据分配到本地内存。由于访问本地内存需要经过全局内存总线，其性能相对较低。
+**Block (Block)**: The middle level, representing a group of cooperating threads. Threads within the same block can share data through shared memory and synchronize their execution. Each block can be configured as 1D, 2D, or 3D structure, and threads within a block can be identified by their unique `threadIdx`.
 
-**全局内存（Global Memory）**是GPU中容量最大的内存类型，所有线程都可以访问。虽然全局内存的容量可达数十GB，但其访问延迟较高，带宽也相对有限。全局内存主要用于存储程序的输入数据、中间计算结果和最终输出。为了获得最佳性能，程序需要遵循内存合并访问模式，确保相邻线程访问相邻的内存地址。
+**Thread (Thread)**: The smallest execution unit, representing a single parallel task. Each thread executes the same kernel function but processes different data elements. Threads are identified by their position within the block and the block's position within the grid.
 
-**常量内存（Constant Memory）**是一种只读的特殊内存类型，具有专门的缓存机制。常量内存特别适合存储kernel参数、查找表和不会改变的配置数据。当多个线程同时访问相同的常量数据时，常量内存的缓存机制可以显著提高访问效率。
+### Thread Index Calculation
 
-**纹理内存（Texture Memory）**是专门为2D和3D数据访问优化的内存类型。纹理内存具有自动的边界处理、插值过滤和缓存优化功能，特别适合图像处理、科学计算和需要空间局部性访问的应用场景。
+In CUDA programming, calculating the correct thread index is crucial for proper data access. The thread index calculation formula is:
 
-## CUDA编程模型基础
-
-### 1. 主机代码 vs 设备代码
-
-在CUDA编程中，程序被分为两个主要部分，分别在不同的硬件上执行：
-
-**主机代码 (Host Code)**：
-- **执行位置**: 在CPU上运行（如Intel Core i7、AMD Ryzen等）
-- **编程语言**: 使用标准C/C++编写
-- **主要职责**: 
-  - 数据准备和初始化
-  - 在CPU内存中分配空间
-  - 在GPU内存中分配空间
-  - 启动GPU kernel
-  - 从GPU获取计算结果
-  - 结果处理和输出
-- **内存管理**: 管理CPU内存（RAM）和GPU内存之间的数据传输
-
-**设备代码 (Device Code)**：
-- **执行位置**: 在GPU上运行（如NVIDIA RTX 4090、Tesla A100等）
-- **编程语言**: 使用CUDA C/C++扩展，需要`__global__`、`__device__`等关键字标记
-- **主要职责**: 
-  - 执行并行计算任务
-  - 处理大规模数据
-  - 利用GPU的并行架构
-- **内存管理**: 只能访问GPU内存，不能直接访问CPU内存
-
-**关键区别**：
-- **主机代码**控制程序的整体流程，**设备代码**专注于计算密集型任务
-- **主机代码**是串行执行，**设备代码**是并行执行
-- 两者通过CUDA运行时API进行通信和协调
-
-### 2. 线程层次结构
-
-CUDA的线程组织采用三层层次结构：Grid（网格）、Block（线程块）和Thread（线程）。这种层次设计既提供了灵活性，又保持了高效的执行模式。
-
-**Grid（网格）**是CUDA程序执行时的最高层次组织单位。一个Grid包含多个Block，这些Block可以组织成1D、2D或3D的网格结构。Grid的维度通过`gridDim`变量定义，每个维度的大小决定了在该方向上可以启动多少个Block。Grid中的所有Block可以并行执行，GPU的硬件调度器会自动将这些Block分配到可用的流式多处理器（SM）上。Grid的设计允许程序处理不同规模的数据集，通过调整Grid的大小来匹配计算需求。
-
-**Block（线程块）**是Grid中的基本执行单元，每个Block包含多个Thread。Block内的线程可以共享内存和进行同步操作，这是CUDA编程中线程协作的基础。Block的维度通过`blockDim`变量定义，同样支持1D、2D或3D的组织方式。每个Block被分配到一个SM上执行，SM会为Block分配必要的资源，如寄存器、共享内存等。
-
-**Thread（线程）**是CUDA程序中的最小执行单元，每个线程执行相同的kernel代码，但处理不同的数据。线程通过`threadIdx`变量来标识自己在Block中的位置，通过`blockIdx`来标识自己所在的Block在Grid中的位置。
-
-```
-Grid (网格)
-├── Block 0 (线程块0)
-│   ├── Thread 0
-│   ├── Thread 1
-│   └── ...
-├── Block 1 (线程块1)
-│   ├── Thread 0
-│   ├── Thread 1
-│   └── ...
-└── ...
-```
-
-### 3. 线程索引计算
-
-#### 技术解释
-```cpp
+```cuda
 int idx = blockIdx.x * blockDim.x + threadIdx.x;
 ```
-- `blockIdx.x`: 当前线程块在网格中的索引
-- `blockDim.x`: 每个线程块中的线程数
-- `threadIdx.x`: 当前线程在线程块中的索引
 
+**Real-life Analogy - School Class Roll Call System**:
+Imagine a school with multiple classes (Grid), each class has multiple rows (Block), and each row has multiple students (Thread). When calling roll, we need to find each student's position:
+- `blockIdx.x` = class number (which class)
+- `blockDim.x` = number of rows per class (how many rows in each class)
+- `threadIdx.x` = row number within the class (which row in the class)
+- `idx` = student's global position in the school
 
-#### 生活中的类比：学校班级点名系统
+**Technical Explanation**:
+- `blockIdx.x`: Block index within the grid
+- `blockDim.x`: Number of threads per block (block dimension)
+- `threadIdx.x`: Thread index within the block
+- `idx`: Global thread index across the entire grid
 
-想象一下学校里的点名系统，这就像我们的vector_add程序：
+### Host vs Device Code
 
-**学校结构**：
-- **学校** = Grid（网格）：整个学校有多个班级
-- **班级** = Block（线程块）：每个班级有固定数量的学生
-- **学生** = Thread（线程）：每个学生负责处理一个特定的任务
+**Host Code**: Code that runs on the CPU, responsible for:
+- Memory allocation and management
+- Data transfer between CPU and GPU
+- Kernel launch and configuration
+- Result collection and processing
+- Resource cleanup
 
-**点名编号系统**：
-假设学校有3个班级，每个班级有4个学生，要给全校学生编号：
+**Device Code**: Code that runs on the GPU, including:
+- `__global__` functions (kernels): Entry points for parallel execution
+- `__device__` functions: Helper functions called by kernels
+- `__host__` functions: Functions that can run on both CPU and GPU
 
+**Memory Management**:
+- Host memory: Managed by CPU, accessible only to host code
+- Device memory: Managed by GPU, accessible only to device code
+- Unified memory: Can be accessed by both host and device (CUDA 6.0+)
+
+### Thread Configuration
+
+**Why Choose 256 Threads Per Block?**
+256 is a commonly used balanced value in CUDA programming for several reasons:
+
+1. **Warp Alignment**: 256 = 8 × 32, perfectly aligned with Warp size (32 threads)
+2. **Resource Utilization**: Balances register usage, shared memory, and occupancy
+3. **Hardware Optimization**: Most GPU architectures are optimized for this size
+4. **Flexibility**: Easy to adjust for different problem sizes
+
+**How to Adjust Thread Configuration**:
+```cuda
+int threadsPerBlock = 256;  // Can be adjusted: 128, 512, 1024
+int blocksPerGrid = (n + threadsPerBlock - 1) / threadsPerBlock;
 ```
-班级0: 学生0(编号0), 学生1(编号1), 学生2(编号2), 学生3(编号3)
-班级1: 学生0(编号4), 学生1(编号5), 学生2(编号6), 学生3(编号7)  
-班级2: 学生0(编号8), 学生1(编号9), 学生2(编号10), 学生3(编号11)
-```
 
-**编号计算公式**：
-```
-学生编号 = 班级号 × 每班人数 + 班级内学号
-```
+**Formula Explanation**:
+- `blocksPerGrid = ceil(n / threadsPerBlock)`
+- Ensures all data elements are processed
+- Handles cases where data size is not perfectly divisible
 
-例如：
-- 班级1的学生2：1 × 4 + 2 = 6号
-- 班级2的学生1：2 × 4 + 1 = 9号
+**Why is n Hardcoded?**
+In this tutorial, `n = 3` is hardcoded for simplicity and demonstration purposes. In real applications, you would:
+- Accept `n` as a command-line parameter
+- Read `n` from configuration files
+- Calculate `n` based on input data size
 
-**CUDA中的对应关系**：
-```cpp
-int idx = blockIdx.x * blockDim.x + threadIdx.x;
-```
-- `blockIdx.x` = 班级号（0, 1, 2...）
-- `blockDim.x` = 每班人数（4）
-- `threadIdx.x` = 班级内学号（0, 1, 2, 3）
-- `idx` = 全局编号（0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11...）
+## Kernel Functions
 
-这样每个学生（线程）就知道自己要处理数组中的哪个元素了！
+### Vector Addition Kernel
 
-
-## 代码解析
-
-### Kernel函数
-```cpp
+```cuda
 __global__ void vector_add(const float *a, const float *b, float *c, int n) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    
     if (idx < n) {
         c[idx] = a[idx] + b[idx];
     }
 }
 ```
 
-**完整代码**: [`vector_add.cu`](vector_add.cu)
-
-**关键点:**
-- `__global__`: 表示这是一个CUDA kernel，从主机调用，在设备上执行
-- 每个线程处理一个数组元素
-- 边界检查确保不会越界访问
-
-### 主机代码流程
-1. **内存分配**: 在主机和设备上分配内存
-2. **数据传输**: 将数据从主机复制到设备
-3. **Kernel启动**: 配置线程块和网格大小，启动kernel
-4. **结果获取**: 将结果从设备复制回主机
-
-### 线程配置
-
-#### 基本配置
-```cpp
-int threadsPerBlock = 256;  // 每个线程块256个线程
-int blocksPerGrid = (n + threadsPerBlock - 1) / threadsPerBlock;  // 计算需要的线程块数
+**Kernel Launch**:
+```cuda
+int threadsPerBlock = 256;
+int blocksPerGrid = (n + threadsPerBlock - 1) / threadsPerBlock;
 vector_add<<<blocksPerGrid, threadsPerBlock>>>(d_a, d_b, d_c, n);
 ```
 
-#### 参数说明和优化
+### Vector Dot Product Kernel
 
-**为什么选择256个线程？**
-256这个数字是经过大量实践测试得出的经验值，它平衡了以下几个因素：
-- **硬件限制**: 每个SM最多支持的线程数因GPU架构而异，RTX 4090支持1024个线程/SM，256是一个常用的平衡值
-- **资源利用率**: 256个线程能够充分利用SM的寄存器、共享内存等资源
-- **调度效率**: 是32的倍数（warp大小），避免warp分化
-- **灵活性**: 256 = 8 × 32，可以灵活地组织成2D或3D的线程块结构
+```cuda
+__global__ void vector_dot(const float *a, const float *b, float *result, int n) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    
+    if (idx < n) {
+        atomicAdd(result, a[idx] * b[idx]);
+    }
+}
+```
 
-**为什么是32的倍数？**
-由于warp大小固定为32，选择32的倍数作为线程块大小可以：
-- 确保每个warp都能被完全填满，避免部分warp的浪费
-- 优化GPU的调度效率，减少线程切换开销
-- 提高内存访问的合并性，增加内存带宽利用率
+## Compilation Commands
 
+### Basic Compilation
+```bash
+nvcc -o vector_add vector_add.cu
+nvcc -o vector_dot vector_dot.cu
+```
 
-**✍️什么是Warp分化(Divergence)？**
-Warp分化是GPU编程中的一个重要概念，指的是同一个warp内的线程执行不同的代码路径。当warp内的32个线程遇到条件分支时，GPU无法让所有线程同时执行，必须串行处理每个分支，这会导致严重的性能损失。
+### Optimization Flags
+```bash
+nvcc -O3 -arch=sm_89 -o vector_add vector_add.cu
+nvcc -O3 -arch=sm_89 -o vector_dot vector_dot.cu
+```
 
-```cpp
-// 示例：会导致warp分化的代码
+### Generate PTX and CUBIN
+```bash
+nvcc -ptx -o vector_add.ptx vector_add.cu
+nvcc -cubin -o vector_add.cubin vector_add.cu
+```
+
+## CUDA Execution Model
+
+### Warp Execution Characteristics
+
+**✍️ What is Warp Divergence (Divergence)?**
+Warp divergence occurs when threads within the same Warp take different execution paths due to conditional statements (if-else, switch, etc.). When divergence happens, the GPU must execute both paths sequentially, significantly reducing performance.
+
+**Example of Warp Divergence**:
+```cuda
 __global__ void divergent_kernel(int *data, int n) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx < n) {  // 条件分支 - 可能导致warp分化
-        if (data[idx] > 0) {  // 另一个条件分支
-            data[idx] = data[idx] * 2;  // 部分线程执行
+    
+    if (idx < n) {
+        if (data[idx] > 0) {
+            data[idx] = data[idx] * 2;  // Path A
         } else {
-            data[idx] = data[idx] / 2;  // 其他线程执行
+            data[idx] = data[idx] / 2;  // Path B
         }
     }
 }
 ```
 
-在上面的代码中，当不同的线程执行不同的条件分支时，就会发生warp分化。GPU需要先执行所有满足`data[idx] > 0`条件的线程，然后再执行其他线程，这种串行执行方式大大降低了并行效率。
+**Impact of Divergence**:
+- Performance degradation: 2x to 32x slower
+- Resource waste: Some threads are idle
+- Reduced parallelism: Sequential execution instead of parallel
 
+**How to Avoid Divergence**:
+1. **Data Reorganization**: Sort data to group similar values
+2. **Algorithm Redesign**: Use branch-free algorithms
+3. **Conditional Compilation**: Use template parameters
+4. **Predication**: Use conditional assignment instead of conditional execution
 
-**💡 获取GPU参数的小程序**
-为了方便获取这些参数值，我们提供了专门的GPU信息获取程序：
+**💡 Important Concept Review**:
+For detailed explanations of Warp concepts and divergence, see the earlier sections:
+- [Warp Concept Details](#gpu硬件架构和内存布局)
+- [✍️ What is Warp Divergence (Divergence)?](#✍️-warp执行特性)
 
-- **Python版本**: [`gpu_info.py`](gpu_info.py)
-- **CUDA版本**: [`gpu_info.cu`](gpu_info.cu)
-- **C++版本**: [`gpu_info_cpp.cpp`](gpu_info_cpp.cpp)
-- **配置总结**: [`GPU_CONFIG_SUMMARY.md`](GPU_CONFIG_SUMMARY.md) - 笔者的RTX 4090详细配置
+**💡 Performance Optimization Tips**:
+For detailed optimization strategies and performance analysis tools, see [Day 2: Performance Optimization](day2/README.md).
 
-运行这些程序可以获取：
-- `prop.maxThreadsPerBlock` - 每块最大线程数
-- `prop.maxThreadsPerMultiProcessor` - 每SM最大线程数
-- `prop.sharedMemPerBlock` - 每块最大共享内存
-- `prop.regsPerBlock` - 每块最大寄存器数
-- `prop.multiProcessorCount` - SM数量
-- 以及更多GPU硬件参数
+## Memory Management
 
-**推荐使用方式**：
-```bash
-# Python版本（推荐，无需编译）
-python gpu_info.py
+### Basic Memory Operations
 
-# C++版本（系统信息检查）
-g++ -o gpu_info_cpp gpu_info_cpp.cpp
-./gpu_info_cpp
+```cuda
+// Memory allocation
+float *d_a, *d_b, *d_c;
+cudaMalloc(&d_a, n * sizeof(float));
+cudaMalloc(&d_b, n * sizeof(float));
+cudaMalloc(&d_c, n * sizeof(float));
 
-# CUDA版本（完整硬件信息，需要编译）
-nvcc -arch=sm_89 -O3 -o gpu_info gpu_info.cu
-./gpu_info
+// Data transfer
+cudaMemcpy(d_a, h_a, n * sizeof(float), cudaMemcpyHostToDevice);
+cudaMemcpy(d_b, h_b, n * sizeof(float), cudaMemcpyHostToDevice);
+
+// Result retrieval
+cudaMemcpy(h_c, d_c, n * sizeof(float), cudaMemcpyDeviceToHost);
+
+// Memory cleanup
+cudaFree(d_a);
+cudaFree(d_b);
+cudaFree(d_c);
 ```
 
-**blocksPerGrid计算公式解释**：
-```cpp
-int blocksPerGrid = (n + threadsPerBlock - 1) / threadsPerGrid;
-```
-这个公式确保有足够的线程块来处理所有数据：
-- 如果n=1000，threadsPerBlock=256
-- 需要4个线程块：前3个处理256×3=768个元素，第4个处理剩余的232个元素
-- 公式中的`+ threadsPerBlock - 1`是为了向上取整
+### Error Handling
 
-**实际应用建议**：
-- **小数据集**（n < 10000）: 使用64-128个线程
-- **中等数据集**（10000 ≤ n < 1000000）: 使用256个线程
-- **大数据集**（n ≥ 1000000）: 使用512个线程
-- **特殊应用**: 根据具体算法特点调整，如矩阵运算可能需要2D线程块
-
-## 编译和运行
-
-### 编译命令
-```bash
-nvcc -o vector_add vector_add.cu
-```
-
-**源代码**: [`vector_add.cu`](vector_add.cu)
-
-### 运行命令并观察结果
-```bash
-$./vector_add 
-c[0] = 3
-c[1] = 3
-c[2] = 3
-```
-
-### 🚀 动态Kernel加载系统
-
-#### CUBIN文件
-
-在深入动态kernel加载之前，我们需要先了解CUBIN文件。CUBIN（CUDA Binary）是CUDA编译器`nvcc`生成的二进制文件，包含了编译后的GPU机器码。CUBIN是**特定GPU架构的二进制格式**，可以直接被GPU执行。
-
-**CUBIN文件的生成过程：**
-```bash
-# 从CUDA源码(.cu)生成PTX中间文件
-nvcc -ptx -arch=sm_89 -o vector_add.ptx vector_add.cu
-
-# 从PTX生成CUBIN二进制文件  
-nvcc -cubin -arch=sm_89 -o vector_add.cubin vector_add.ptx
-
-# 或者直接从源码一步生成CUBIN
-nvcc -cubin -arch=sm_89 -o vector_add.cubin vector_add.cu
-```
-
-#### 什么是动态Kernel加载？
-动态kernel加载是指程序可以在运行时动态选择要执行的kernel函数，按需加载不同的GPU Kernel(CUBIN文件)，灵活配置kernel的执行参数，最终实现插件化的GPU计算系统。程序可以根据运行时条件选择不同的算法，无需重新编译就能添加新功能，实现真正的可扩展性。同时，这种技术能够根据硬件和数据特征选择最优kernel，提升性能表现。更重要的是，它将不同的计算功能分离到独立的CUBIN文件中，实现了良好的模块化设计。
-
-#### 实例演示
-
-我们通过两个不同的向量运算kernel来演示动态加载。首先需要生成多个CUBIN文件，每个文件包含不同的计算功能：
-
-```bash
-# 1. 生成向量加法kernel的CUBIN文件
-nvcc -cubin -arch=sm_89 -o vector_add.cubin vector_add.cu
-# 2. 生成向量点积kernel的CUBIN文件  
-nvcc -cubin -arch=sm_89 -o vector_dot.cubin vector_dot.cu
-# 3. 编译动态加载程序
-nvcc -arch=sm_89 run_cubin.cpp -lcuda -o run_cubin
-# 4. 运行时选择不同的kernel
-./run_cubin vector_add.cubin    # 执行向量加法: [1,2,3] + [2,2,2] = [3,4,5]
-./run_cubin vector_dot.cubin    # 执行向量点积: [1,2,3] · [2,2,2] = 12
-```
-
-**注意**: 这个程序需要CUDA驱动库支持，编译时需要链接`-lcuda`。
-
-#### 源码技术实现要点
-
-[`run_cubin.cpp`](run_cubin.cpp) 演示了动态kernel加载的完整技术流程。程序首先通过`cuModuleLoad()`动态加载指定的CUBIN文件，然后使用`cuModuleGetFunction()`获取kernel函数句柄。接下来程序会动态配置kernel的执行参数，包括内存分配、数据复制和kernel启动配置。整个过程展示了如何通过CUDA Driver API实现完整的资源管理和kernel执行。
-
-**💡 重要技巧：避免C++名称修饰**
-
-在动态加载CUBIN文件时，一个常见问题是C++编译器会对函数名进行名称修饰（name mangling），导致kernel名称变得复杂难读。例如：
-- 原始名称：`vector_dot`
-- 修饰后名称：`_Z10vector_dotPKfS0_Pfi`
-
-**解决方案：使用extern "C"（推荐）**
-```cpp
-// 在kernel函数前添加extern "C"
-extern "C" __global__ void vector_dot(const float *a, const float *b, float *result, int n) {
-    // kernel代码
+```cuda
+cudaError_t error = cudaGetLastError();
+if (error != cudaSuccess) {
+    printf("CUDA error: %s\n", cudaGetErrorString(error));
+    return -1;
 }
 ```
 
-#### 实际应用场景
+## GPU Configuration Tools
 
-动态kernel加载技术在多个领域都有重要应用。在深度学习框架中，程序可以根据模型类型动态选择优化kernel；科学计算库能够根据数据类型选择精度最优的算法；图像处理应用可以根据图像特征选择最适合的滤波kernel；游戏引擎则能够根据场景复杂度动态选择渲染算法。这种技术让GPU计算变得更加智能和高效。
+### 💡 GPU Parameter Tool
 
+To get detailed GPU configuration and optimal thread block size, we provide three versions of GPU information tools:
 
+**Python Version (Recommended)**:
+- [gpu_info.py](gpu_info.py) - Easy to use, no compilation required
+- Shows GPU name, compute capability, memory, SM count, etc.
+- Provides optimal thread block size recommendations
 
-## CUDA执行模型
+**CUDA C++ Version**:
+- [gpu_info.cu](gpu_info.cu) - Full GPU information using CUDA API
+- Compile with: `nvcc -o gpu_info gpu_info.cu`
+- Shows detailed hardware specifications
 
-#### ✍️ Warp执行特性
-- **执行模式**: 同一个warp内的线程执行相同的指令
-- **分支处理**: 如果warp内线程执行不同分支，会导致warp分化(warp divergence)
-- **性能影响**: warp分化会显著降低GPU的执行效率
+**Pure C++ Version**:
+- [gpu_info_cpp.cpp](gpu_info_cpp.cpp) - System information and CUDA environment check
+- Compile with: `g++ -o gpu_info_cpp gpu_info_cpp.cpp`
+- Checks CUDA installation and environment variables
 
-**💡 重要概念回顾**：
-Warp是GPU调度的基本单位，每个Warp包含32个线程，采用SIMT执行模型。关于Warp分化的详细解释和优化技巧，请参考前面的"✍️什么是Warp分化(Divergence)？"部分。
+**Configuration Summary**:
+- [GPU_CONFIG_SUMMARY.md](GPU_CONFIG_SUMMARY.md) - RTX 4090 configuration summary
+- Contains optimal CUDA programming recommendations
+- Based on `nvidia-smi -q` output analysis
 
-#### 线程块调度
-- **SM分配**: 线程块被分配到不同的流式多处理器(SM)
-- **资源限制**: 每个SM有固定的寄存器、共享内存和线程块数量
-- **动态调度**: GPU自动管理线程块的调度和执行
+**Recommended Usage**:
+1. **Quick Check**: Use `gpu_info.py` for immediate GPU information
+2. **Detailed Analysis**: Use `gpu_info.cu` for comprehensive hardware details
+3. **Environment Verification**: Use `gpu_info_cpp.cpp` to check CUDA setup
+4. **Reference**: Use `GPU_CONFIG_SUMMARY.md` for optimization guidelines
 
-#### 内存合并访问
-- **概念**: 多个线程同时访问连续的内存地址
-- **优化**: 合并访问可以提高内存带宽利用率
-- **实现**: 使用合适的线程索引计算模式
+## Dynamic Kernel Loading System
 
-**💡 性能优化提示**：
-关于线程块调度优化、内存合并访问优化、共享内存使用等详细内容，将在Day 2的"性能分析和优化"部分深入讨论。
+### What are CUBIN Files?
 
+**CUBIN (CUDA Binary)**: Binary files containing compiled GPU machine code, generated by the NVIDIA compiler from CUDA source code.
 
-## 下一步
-明天我们将学习如何手动加载PTX代码，深入了解CUDA的底层机制。
+**Generation Process**:
+1. **CUDA Source (.cu)** → **PTX (.ptx)** → **CUBIN (.cubin)**
+2. **nvcc** compiles CUDA source to PTX (intermediate representation)
+3. **ptxas** assembles PTX to CUBIN (final binary)
 
-## 练习
-1. 修改代码实现向量减法
-2. 尝试不同的线程块大小，观察性能变化
-3. 添加错误检查代码，提高程序的健壮性
+**CUBIN vs PTX**:
+- **CUBIN**: Binary format, faster loading, smaller size
+- **PTX**: Text format, human-readable, larger size
+- **CUBIN** is preferred for production use
 
-## 参考资料
-- [CUDA C++ Programming Guide](https://docs.nvidia.com/cuda/cuda-c-programming-guide/)
-- [CUDA Runtime API](https://docs.nvidia.com/cuda/cuda-runtime-api/)
-- [NVIDIA GPU Architecture](https://www.nvidia.com/en-us/data-center/gpu-architecture/)
-- [CUDA Performance Best Practices Guide](https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/)
-- [GPU Computing Gems](https://developer.nvidia.com/gpugems)
-- [NVIDIA Technical Blog](https://developer.nvidia.com/blog/)
+### 🚀 Dynamic Kernel Loading System
 
-### 学术论文
-- **"CUDA: Scalable Parallel Programming for GPUs"** - Nickolls et al., 2008
-- **"Understanding the Efficiency of GPU Algorithms for Matrix-Matrix Multiplication"** - Volkov & Demmel, 2008
-- **"Optimizing CUDA Code for Fermi Architecture"** - NVIDIA, 2010
-- **"GPU Memory Model and Programming Model"** - NVIDIA, 2012
-- **"Maxwell: The Most Advanced CUDA GPU Ever Made"** - NVIDIA, 2014
-- **"Volta: The Most Advanced Data Center GPU"** - NVIDIA, 2017
-- **"Turing: The Most Advanced GPU Architecture"** - NVIDIA, 2018
-- **"Ampere: NVIDIA's Next Generation Data Center GPU"** - NVIDIA, 2020
-- **"Hopper: NVIDIA's Next Generation GPU Architecture"** - NVIDIA, 2022
-- **"Ada Lovelace: NVIDIA's Next Generation Gaming GPU"** - NVIDIA, 2022
-- **"Blackwell: NVIDIA's Next Generation AI GPU"** - NVIDIA, 2024
+The dynamic kernel loading system demonstrates how to load and execute CUDA kernels at runtime using the CUDA Driver API. This approach provides flexibility and enables plugin-based architectures.
 
-### 在线资源
-- [NVIDIA Developer Forums](https://forums.developer.nvidia.com/)
-- [CUDA Samples](https://github.com/NVIDIA/cuda-samples)
-- [NVIDIA Deep Learning Institute](https://www.nvidia.com/en-us/deep-learning-ai/education-training/)
-- [CUDA Toolkit Documentation](https://docs.nvidia.com/cuda/)
+**Key Features**:
+- **Runtime Loading**: Load kernels without recompiling the main program
+- **Multiple Kernels**: Support different kernel functions in the same program
+- **Error Handling**: Comprehensive error checking and resource management
+- **RAII Design**: Modern C++ resource management using RAII principles
 
----
+**Implementation Highlights**:
+```cpp
+// RAII wrapper for CUDA resources
+class CUDADevice {
+    // Automatic resource management
+    // Exception-safe initialization and cleanup
+};
 
-## 附录：GPU硬件详细信息
+class CUDAModule {
+    // CUBIN file loading and management
+    // Automatic module unloading
+};
 
-### NVIDIA GPU架构演进历史
+class CUDAMemory {
+    // Device memory allocation and deallocation
+    // Automatic memory cleanup
+};
+```
 
-#### 数据中心GPU架构
-- **[Tesla (2006)](https://www.nvidia.com/en-us/data-center/tesla/)**: 第一代统一着色器架构，引入CUDA编程模型
-- **[Fermi (2010)](https://www.nvidia.com/en-us/data-center/tesla/)**: 引入真正的缓存层次和共享内存，支持ECC内存
-- **[Kepler (2012)](https://www.nvidia.com/en-us/data-center/tesla/)**: 动态并行和Hyper-Q技术，显著提升并行处理能力
-- **[Maxwell (2014)](https://www.nvidia.com/en-us/data-center/tesla/)**: 能效比显著提升，引入动态并行
-- **[Pascal (2016)](https://www.nvidia.com/en-us/data-center/tesla/)**: 引入NVLink和统一内存，支持HBM2显存
-- **[Volta (2017)](https://www.nvidia.com/en-us/data-center/tesla/)**: Tensor Core和独立线程调度，专为AI训练设计
-- **[Turing (2018)](https://www.nvidia.com/en-us/data-center/tesla/)**: RT Core和AI加速，支持实时光线追踪
-- **[Ampere (2020)](https://www.nvidia.com/en-us/data-center/tesla/)**: 第三代Tensor Core和RT Core，支持稀疏计算
-- **[Hopper (2022)](https://www.nvidia.com/en-us/data-center/tesla/)**: 第四代Tensor Core和Transformer Engine，专为AI推理优化
-- **[Blackwell (2024)](https://www.nvidia.com/en-us/data-center/tesla/)**: 第五代Tensor Core和AI推理加速，支持万亿参数模型
+**💡 Important Technique: Avoiding C++ Name Mangling**
 
-#### 消费级GPU架构
-- **[Maxwell (2014)](https://www.nvidia.com/en-us/geforce/)**: GTX 900系列，能效比革命性提升
-- **[Pascal (2016)](https://www.nvidia.com/en-us/geforce/)**: GTX 1000系列，引入VRWorks和Ansel
-- **[Turing (2018)](https://www.nvidia.com/en-us/geforce/)**: RTX 2000系列，实时光线追踪和DLSS
-- **[Ampere (2020)](https://www.nvidia.com/en-us/geforce/)**: RTX 3000系列，第二代RT Core和第三代Tensor Core
-- **[Ada Lovelace (2022)](https://www.nvidia.com/en-us/geforce/)**: RTX 4000系列，第四代RT Core和DLSS 3
+**Problem**: C++ compilers perform name mangling, changing function names like `vector_add` to `_Z10vector_addPKfS0_Pfi`.
 
-### RTX 4090详细规格 (Ada Lovelace架构)
+**Solution 1 (Recommended)**: Use `extern "C"` in kernel source files
+```cuda
+extern "C" __global__ void vector_add(const float *a, const float *b, float *c, int n) {
+    // kernel implementation
+}
+```
 
-#### 核心规格
-- **CUDA核心**: 16,384个
-- **Tensor核心**: 512个 (第四代)
-- **RT核心**: 144个 (第四代)
-- **计算能力**: 8.9
-- **基础频率**: 2.23 GHz
-- **Boost频率**: 2.52 GHz
+**Benefits**:
+- Simple and effective
+- No additional compilation flags needed
+- Maintains clean, readable kernel names
+- Compatible with all CUDA versions
 
-#### 内存规格
-- **显存容量**: 24GB GDDR6X
-- **显存带宽**: 1,008 GB/s
-- **显存位宽**: 384-bit
-- **显存频率**: 21 Gbps
+**Usage Examples**:
+```bash
+# Load and execute vector addition
+./run_cubin vector_add.cubin    # Execute vector addition: [1,2,3] + [2,2,2] = [3,4,5]
 
-#### 功耗和散热
-- **最大功耗**: 450W
-- **推荐电源**: 850W
-- **散热设计**: 三风扇，双槽位
-- **接口**: PCIe 4.0 x16
+# Load and execute vector dot product  
+./run_cubin vector_dot.cubin    # Execute vector dot product: [1,2,3] · [2,2,2] = 12
+```
 
-#### 官方链接
-- [RTX 4090产品页面](https://www.nvidia.com/en-us/geforce/graphics-cards/40-series/rtx-4090/)
-- [RTX 4090技术规格](https://www.nvidia.com/en-us/geforce/graphics-cards/40-series/rtx-4090/)
-- [Ada Lovelace架构白皮书](https://www.nvidia.com/en-us/geforce/graphics-cards/40-series/)
+## Quick Start
 
-### GPU内存层次详细规格
+### 1. Environment Setup
+```bash
+# Verify CUDA installation
+nvcc --version
+nvidia-smi
 
-#### 寄存器 (Registers)
-- **访问延迟**: 1个时钟周期
-- **容量**: 每个线程最多255个32位寄存器
-- **带宽**: 理论无限 (受限于硬件)
-- **用途**: 存储频繁访问的变量和中间结果
-- **优化建议**: 避免寄存器溢出，合理使用循环展开
+# Check GPU information
+python3 gpu_info.py
+```
 
-#### 共享内存 (Shared Memory)
-- **访问延迟**: 1-2个时钟周期
-- **容量**: 每个线程块最多48KB (计算能力8.x)
-- **带宽**: 约1.6 TB/s
-- **用途**: 线程间数据交换和协作
-- **优化建议**: 避免bank冲突，合理分配内存
+### 2. Compile and Run
+```bash
+# Vector addition
+nvcc -o vector_add vector_add.cu
+./vector_add
 
-#### 本地内存 (Local Memory)
-- **访问延迟**: 200-800个时钟周期
-- **容量**: 受全局内存限制
-- **带宽**: 受全局内存带宽限制
-- **用途**: 存储大型数组和寄存器溢出数据
-- **优化建议**: 尽量避免使用，优先使用寄存器
+# Vector dot product
+nvcc -o vector_dot vector_dot.cu
+./vector_dot
 
-#### 全局内存 (Global Memory)
-- **访问延迟**: 200-800个时钟周期
-- **容量**: 受GPU显存限制
-- **带宽**: RTX 4090约1,008 GB/s
-- **用途**: 存储输入数据和计算结果
-- **优化建议**: 使用合并访问，合理内存对齐
+# Dynamic kernel loading
+nvcc -arch=sm_89 run_cubin.cpp -lcuda -o run_cubin
+./run_cubin vector_add.cubin
+./run_cubin vector_dot.cubin
+```
 
-#### 常量内存 (Constant Memory)
-- **访问延迟**: 1-2个时钟周期 (缓存命中)
-- **容量**: 64KB (每个SM)
-- **带宽**: 约1.6 TB/s
-- **用途**: 存储kernel参数和查找表
-- **优化建议**: 适合广播访问模式
+### 3. Generate PTX and CUBIN
+```bash
+# Generate PTX (intermediate representation)
+nvcc -ptx -o vector_add.ptx vector_add.cu
 
-#### 纹理内存 (Texture Memory)
-- **访问延迟**: 1-2个时钟周期 (缓存命中)
-- **容量**: 受全局内存限制
-- **带宽**: 约1.6 TB/s
-- **用途**: 图像处理和科学计算
-- **优化建议**: 适合2D/3D空间局部性访问
+# Generate CUBIN (binary)
+nvcc -cubin -o vector_add.cubin vector_add.cu
 
-### 性能基准和对比
+# View CUBIN contents
+cuobjdump -sass vector_add.cubin
+```
 
-#### 理论峰值性能
-- **FP32性能**: 约165 TFLOPS
-- **FP16性能**: 约330 TFLOPS (使用Tensor Core)
-- **内存带宽**: 1,008 GB/s
-- **功耗效率**: 约0.37 TFLOPS/W
+## Summary
 
-#### 实际应用性能
-- **深度学习训练**: 比RTX 3090快约1.5-2倍
-- **科学计算**: 比RTX 3090快约1.3-1.8倍
-- **游戏性能**: 4K分辨率下比RTX 3090快约1.2-1.5倍
-- **光线追踪**: 比RTX 3090快约1.4-2倍
+Today we have learned:
+1. **GPU Hardware Architecture**: Understanding SM, Warp, memory hierarchy
+2. **CUDA Programming Model**: Grid-Block-Thread relationship and index calculation
+3. **Basic Kernels**: Vector addition and dot product implementation
+4. **Memory Management**: Host vs device memory, allocation and transfer
+5. **GPU Tools**: Configuration tools and parameter optimization
+6. **Dynamic Loading**: CUBIN files and Driver API usage
+7. **Warp Characteristics**: Execution model and divergence avoidance
 
-### 相关技术文档链接
+**Key Concepts**:
+- **Warp Size**: Fixed at 32 threads across all NVIDIA GPU architectures
+- **Thread Block Size**: 256 is a balanced choice for most applications
+- **Memory Hierarchy**: Registers → Shared Memory → Global Memory
+- **Index Calculation**: `idx = blockIdx.x * blockDim.x + threadIdx.x`
 
-#### NVIDIA官方文档
-- [CUDA编程指南](https://docs.nvidia.com/cuda/cuda-c-programming-guide/)
-- [CUDA性能最佳实践](https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/)
-- [GPU架构白皮书](https://www.nvidia.com/en-us/data-center/gpu-architecture/)
-- [开发者资源中心](https://developer.nvidia.com/)
+**Next Steps**:
+- Practice with different data sizes and thread configurations
+- Experiment with memory access patterns
+- Explore advanced optimization techniques in Day 2
 
-#### 技术博客和论坛
-- [NVIDIA开发者博客](https://developer.nvidia.com/blog/)
-- [CUDA开发者论坛](https://forums.developer.nvidia.com/)
-- [GPU计算社区](https://developer.nvidia.com/gpu-computing)
-- [深度学习学院](https://www.nvidia.com/en-us/deep-learning-ai/education-training/)
+## 📁 Quick File Links
 
----
+**Main Files**:
+- [README.md](README.md) - This tutorial file
+- [vector_add.cu](vector_add.cu) - Vector addition kernel
+- [vector_dot.cu](vector_dot.cu) - Vector dot product kernel
+- [run_cubin.cpp](run_cubin.cpp) - Dynamic kernel loading system
 
-## 📁 相关文件快速链接
-本教程包含以下相关程序文件，点击即可查看：
+**GPU Information Tools**:
+- [gpu_info.py](gpu_info.py) - Python GPU configuration tool
+- [gpu_info.cu](gpu_info.cu) - CUDA C++ GPU information tool
+- [gpu_info_cpp.cpp](gpu_info_cpp.cpp) - Pure C++ system information tool
+- [GPU_CONFIG_SUMMARY.md](GPU_CONFIG_SUMMARY.md) - RTX 4090 configuration summary
 
-### 🚀 示例程序
-- [`vector_add.cu`](vector_add.cu) - 向量加法CUDA kernel示例
-- [`vector_dot.cu`](vector_dot.cu) - 向量点积CUDA kernel示例
-- [`run_cubin.cpp`](run_cubin.cpp) - CUBIN文件运行程序（CUDA Driver API示例）
+**Generated Files**:
+- [vector_add.ptx](vector_add.ptx) - PTX intermediate representation
+- [vector_add.cubin](vector_add.cubin) - CUBIN binary file
+- [vector_dot.ptx](vector_dot.ptx) - PTX intermediate representation
+- [vector_dot.cubin](vector_dot.cubin) - CUBIN binary file
 
-### 🔍 GPU信息获取工具
-- [`gpu_info.py`](gpu_info.py) - Python版本GPU信息获取（推荐）
-- [`gpu_info.cu`](gpu_info.cu) - CUDA版本完整硬件信息
-- [`gpu_info_cpp.cpp`](gpu_info_cpp.cpp) - C++版本系统信息检查
-- [`GPU_CONFIG_SUMMARY.md`](GPU_CONFIG_SUMMARY.md) - RTX 4090配置总结
+**Compilation Commands**:
+```bash
+# Basic compilation
+nvcc -o vector_add vector_add.cu
+nvcc -o vector_dot vector_dot.cu
+
+# With optimization
+nvcc -O3 -arch=sm_89 -o vector_add vector_add.cu
+nvcc -O3 -arch=sm_89 -o vector_dot vector_dot.cu
+
+# Generate PTX and CUBIN
+nvcc -ptx -o vector_add.ptx vector_add.cu
+nvcc -cubin -o vector_add.cubin vector_add.cu
+
+# Dynamic kernel loading
+nvcc -arch=sm_89 run_cubin.cpp -lcuda -o run_cubin
+```
