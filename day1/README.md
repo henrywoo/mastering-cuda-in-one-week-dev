@@ -126,7 +126,7 @@ int main() {
     // ... 内存分配和数据准备 ...
     // 启动kernel，配置线程网格
     int threadsPerBlock = 256;
-    int blocksPerGrid = (n + threadsPerBlock - 1) / threadsPerBlock;
+    int blocksPerGrid = (n + threadsPerBlock - 1) / threadsPerBlock; // n = 1M
     vector_add<<<blocksPerGrid, threadsPerBlock>>>(d_a, d_b, d_c, n);
     // ... 结果获取和清理 ...
 }
@@ -260,7 +260,7 @@ __global__ void vector_add(const float *a, const float *b, float *c, int n) {
 #### 基本配置
 ```cpp
 int threadsPerBlock = 256;  // 每个线程块256个线程
-int blocksPerGrid = (n + threadsPerBlock - 1) / threadsPerBlock;  // 计算需要的线程块数
+int blocksPerGrid = (n + threadsPerBlock - 1) / threadsPerBlock;  // 计算需要的线程块数 n = 1M
 vector_add<<<blocksPerGrid, threadsPerBlock>>>(d_a, d_b, d_c, n);
 ```
 
@@ -332,7 +332,7 @@ nvcc -arch=sm_89 -O3 -o gpu_info gpu_info.cu
 
 **blocksPerGrid计算公式解释**：
 ```cpp
-int blocksPerGrid = (n + threadsPerBlock - 1) / threadsPerGrid;
+int blocksPerGrid = (n + threadsPerBlock - 1) / threadsPerGrid; // n = 1M
 ```
 这个公式确保有足够的线程块来处理所有数据：
 - 如果n=1000，threadsPerBlock=256
