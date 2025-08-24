@@ -3,6 +3,68 @@
 #include <iomanip>
 #include <string>
 #include <vector>
+#include <cuda_fp16.h>
+#include <cuda_bf16.h>
+#include <cuda_fp8.h>  // FP8支持
+#include <cuda/std/type_traits>
+
+// 直接测试FP8/INT8支持的宏定义
+#define TEST_FP8_INT8_DIRECTLY 1
+
+// 首先定义traits结构体
+// 使用traits检测数据类型支持
+template<typename T>
+struct is_fp16_supported {
+    static constexpr bool value = false;
+};
+
+template<typename T>
+struct is_bf16_supported {
+    static constexpr bool value = false;
+};
+
+template<typename T>
+struct is_fp8_supported {
+    static constexpr bool value = false;
+};
+
+template<typename T>
+struct is_int8_supported {
+    static constexpr bool value = false;
+};
+
+// 特化FP16支持检测
+#ifdef __CUDA_FP16_H__
+template<>
+struct is_fp16_supported<__half> {
+    static constexpr bool value = true;
+};
+#endif
+
+// 特化BF16支持检测
+#ifdef __CUDA_BF16_H__
+template<>
+struct is_bf16_supported<__nv_bfloat16> {
+    static constexpr bool value = true;
+};
+#endif
+
+// 特化FP8支持检测 - 使用正确的FP8类型
+template<>
+struct is_fp8_supported<__nv_fp8_e4m3> {
+    static constexpr bool value = true;
+};
+
+template<>
+struct is_fp8_supported<__nv_fp8_e5m2> {
+    static constexpr bool value = true;
+};
+
+// 特化INT8支持检测
+template<>
+struct is_int8_supported<int8_t> {
+    static constexpr bool value = true;
+};
 
 // 格式化字节数为人类可读格式
 std::string formatBytes(size_t bytes) {
@@ -77,6 +139,293 @@ std::string getGPUModelRange(int smCount) {
     else if (smCount >= 10) return "GTX 1050/GTX 950 (Pascal/Maxwell)";
     else return "Unknown";
 }
+
+// 使用traits检测FP8支持
+bool testFP8SupportWithTraits() {
+    std::cout << "【FP8支持测试 - Traits检测法】\n";
+    
+    // 使用traits检测FP8支持
+    bool fp8Supported = is_fp8_supported<__nv_fp8_e4m3>::value;
+    
+    if (fp8Supported) {
+        std::cout << "  ✅ Traits检测FP8支持: 是\n";
+    } else {
+        std::cout << "  ❌ Traits检测FP8支持: 否\n";
+    }
+    
+    return fp8Supported;
+}
+
+// 测试FP8支持
+void testFP8Support(int major, int minor) {
+    bool fp8Supported = testFP8SupportWithTraits();
+    
+    std::cout << "  FP8支持: " << (fp8Supported ? "✅ 支持" : "❌ 不支持") << "\n";
+    
+    if (fp8Supported) {
+        std::cout << "  FP8特性:\n";
+        std::cout << "    - 存储需求: 相比FP16减半\n";
+        std::cout << "    - 吞吐量: 相比FP16翻倍\n";
+        std::cout << "    - 适用场景: AI推理、深度学习训练\n";
+    }
+    std::cout << "\n";
+}
+
+// 使用traits检测INT8支持
+bool testINT8SupportWithTraits() {
+    std::cout << "【INT8支持测试 - Traits检测法】\n";
+    
+    // 使用traits检测INT8支持
+    bool int8Supported = is_int8_supported<int8_t>::value;
+    
+    if (int8Supported) {
+        std::cout << "  ✅ Traits检测INT8支持: 是\n";
+    } else {
+        std::cout << "  ❌ Traits检测INT8支持: 否\n";
+    }
+    
+    return int8Supported;
+}
+
+// 测试INT8支持
+void testINT8Support(int major, int minor) {
+    bool int8Supported = testINT8SupportWithTraits();
+    
+    std::cout << "  INT8支持: " << (int8Supported ? "✅ 支持" : "❌ 不支持") << "\n";
+    
+    if (int8Supported) {
+        std::cout << "  INT8特性:\n";
+        std::cout << "    - 存储需求: 相比FP32减少75%\n";
+        std::cout << "    - 吞吐量: 相比FP32提升显著\n";
+        std::cout << "    - 适用场景: 量化推理、边缘计算\n";
+        std::cout << "    - Tensor Core代数: " << (major >= 8 ? "第3-4代" : "第1-2代") << "\n";
+    }
+    std::cout << "\n";
+}
+
+
+
+// 使用traits检测混合精度支持并演示混合精度计算
+void testMixedPrecisionSupport(int major, int minor) {
+    std::cout << "【混合精度支持测试 - Traits检测法】\n";
+    
+    // 使用traits检测支持
+    bool fp16Supported = is_fp16_supported<__half>::value;
+    bool bf16Supported = is_bf16_supported<__nv_bfloat16>::value;
+    bool fp8Supported = is_fp8_supported<__nv_fp8_e4m3>::value;
+    bool int8Supported = is_int8_supported<int8_t>::value;
+    
+    std::cout << "  FP16支持: " << (fp16Supported ? "✅ 支持" : "❌ 不支持") << "\n";
+    std::cout << "  BF16支持: " << (bf16Supported ? "✅ 支持" : "❌ 不支持") << "\n";
+    std::cout << "  FP8支持: " << (fp8Supported ? "✅ 支持" : "❌ 不支持") << "\n";
+    std::cout << "  INT8支持: " << (int8Supported ? "✅ 支持" : "❌ 不支持") << "\n";
+    
+    if (fp16Supported || bf16Supported || fp8Supported || int8Supported) {
+        std::cout << "  混合精度优势:\n";
+        std::cout << "    - 内存使用减少\n";
+        std::cout << "    - 计算速度提升\n";
+        std::cout << "    - 支持Tensor Core加速\n";
+        std::cout << "    - Traits检测: ✅ 支持\n";
+        
+        // 演示混合精度数学操作
+        std::cout << "\n  【混合精度数学操作演示】\n";
+        
+        // 示例1: FP32 + FP16 混合计算
+        if (fp16Supported) {
+            float fp32_value = 3.14159f;
+            __half fp16_value = __float2half(2.71828f);
+            
+            // 混合精度计算：FP32 + FP16 -> FP32
+            float mixed_result = fp32_value + __half2float(fp16_value);
+            std::cout << "    FP32 + FP16 混合计算:\n";
+            std::cout << "      FP32值: " << fp32_value << "\n";
+            std::cout << "      FP16值: " << __half2float(fp16_value) << "\n";
+            std::cout << "      混合结果: " << mixed_result << "\n";
+        }
+        
+        // 示例2: FP16 + FP8 混合计算
+        if (fp16Supported && fp8Supported) {
+            __half fp16_a = __float2half(1.5f);
+            __half fp16_b = __float2half(2.5f);
+            
+            // 先进行FP16计算
+            __half fp16_result = __hadd(fp16_a, fp16_b);
+            
+            // 转换为FP8进行进一步计算
+            __nv_fp8_e4m3 fp8_result = __nv_cvt_halfraw_to_fp8(
+                __half_as_short(fp16_result), __NV_NOSAT, __NV_E4M3);
+            
+            // 转换回FP16
+            __half final_result = __nv_cvt_fp8_to_halfraw(fp8_result, __NV_E4M3);
+            
+            std::cout << "    FP16 + FP8 混合计算:\n";
+            std::cout << "      FP16加法: " << __half2float(fp16_a) << " + " << __half2float(fp16_b) << " = " << __half2float(fp16_result) << "\n";
+            std::cout << "      FP8压缩后: " << __half2float(final_result) << "\n";
+        }
+        
+        // 示例3: INT8 + FP16 混合计算
+        if (int8Supported && fp16Supported) {
+            int8_t int8_value = 10;
+            __half fp16_value = __float2half(0.5f);
+            
+            // INT8 -> FP16 转换后进行混合计算
+            __half fp16_int8 = __float2half(static_cast<float>(int8_value));
+            __half mixed_result = __hmul(fp16_int8, fp16_value);
+            
+            std::cout << "    INT8 + FP16 混合计算:\n";
+            std::cout << "      INT8值: " << static_cast<int>(int8_value) << "\n";
+            std::cout << "      FP16值: " << __half2float(fp16_value) << "\n";
+            std::cout << "      混合乘法结果: " << __half2float(mixed_result) << "\n";
+        }
+        
+        // 示例4: 混合精度向量点积
+        if (fp16Supported) {
+            std::cout << "    FP32 + FP16 混合精度向量点积:\n";
+            
+            // 创建测试向量
+            float fp32_vec[3] = {1.0f, 2.0f, 3.0f};
+            __half fp16_vec[3] = {__float2half(4.0f), __float2half(5.0f), __float2half(6.0f)};
+            
+            // 混合精度点积计算
+            float dot_product = 0.0f;
+            for (int i = 0; i < 3; i++) {
+                // FP32 × FP16 -> FP32
+                float temp = fp32_vec[i] * __half2float(fp16_vec[i]);
+                dot_product += temp;
+            }
+            
+            std::cout << "      FP32向量: [" << fp32_vec[0] << ", " << fp32_vec[1] << ", " << fp32_vec[2] << "]\n";
+            std::cout << "      FP16向量: [" << __half2float(fp16_vec[0]) << ", " << __half2float(fp16_vec[1]) << ", " << __half2float(fp16_vec[2]) << "]\n";
+            std::cout << "      混合点积结果: " << dot_product << "\n";
+        }
+        
+        std::cout << "\n  ✅ 混合精度数学操作演示完成\n";
+    }
+    std::cout << "\n";
+}
+
+
+
+// 高级traits检测 - 检测具体操作支持
+template<typename T>
+struct fp16_operations_traits {
+    static constexpr bool has_addition = false;
+    static constexpr bool has_multiplication = false;
+    static constexpr bool has_conversion = false;
+};
+
+// 特化FP16操作traits
+#ifdef __CUDA_FP16_H__
+template<>
+struct fp16_operations_traits<__half> {
+    static constexpr bool has_addition = true;
+    static constexpr bool has_multiplication = true;
+    static constexpr bool has_conversion = true;
+};
+#endif
+
+// 检测FP16操作支持
+void testFP16OperationsWithTraits() {
+    std::cout << "【FP16操作支持检测 - 高级Traits】\n";
+    
+    using fp16_traits = fp16_operations_traits<__half>;
+    
+    std::cout << "  FP16加法: " << (fp16_traits::has_addition ? "✅ 支持" : "❌ 不支持") << "\n";
+    std::cout << "  FP16乘法: " << (fp16_traits::has_multiplication ? "✅ 支持" : "❌ 不支持") << "\n";
+    std::cout << "  FP16转换: " << (fp16_traits::has_conversion ? "✅ 支持" : "❌ 不支持") << "\n";
+    
+    if (fp16_traits::has_addition && fp16_traits::has_multiplication) {
+        std::cout << "  ✅ 支持完整的FP16运算\n";
+    }
+    std::cout << "\n";
+}
+
+// 使用traits模板编程测试类型支持
+template<typename T>
+struct type_support_traits {
+    static constexpr bool is_supported = false;
+    static constexpr const char* type_name = "unknown";
+    static constexpr const char* description = "不支持";
+};
+
+// FP8 E4M3类型支持traits
+template<>
+struct type_support_traits<__nv_fp8_e4m3> {
+    static constexpr bool is_supported = true;
+    static constexpr const char* type_name = "__nv_fp8_e4m3";
+    static constexpr const char* description = "FP8 E4M3格式 (4位指数, 3位尾数)";
+};
+
+// FP8 E5M2类型支持traits
+template<>
+struct type_support_traits<__nv_fp8_e5m2> {
+    static constexpr bool is_supported = true;
+    static constexpr const char* type_name = "__nv_fp8_e5m2";
+    static constexpr const char* description = "FP8 E5M2格式 (5位指数, 2位尾数)";
+};
+
+// FP16类型支持traits
+template<>
+struct type_support_traits<__half> {
+    static constexpr bool is_supported = true;
+    static constexpr const char* type_name = "__half";
+    static constexpr const char* description = "FP16格式 (半精度浮点)";
+};
+
+// BF16类型支持traits
+template<>
+struct type_support_traits<__nv_bfloat16> {
+    static constexpr bool is_supported = true;
+    static constexpr const char* type_name = "__nv_bfloat16";
+    static constexpr const char* description = "BF16格式 (Brain Float 16)";
+};
+
+// INT8类型支持traits
+template<>
+struct type_support_traits<int8_t> {
+    static constexpr bool is_supported = true;
+    static constexpr const char* type_name = "int8_t";
+    static constexpr const char* description = "8位整数";
+};
+
+// 测试类型支持的traits函数
+template<typename T>
+void testTypeSupportTraits() {
+    std::cout << "  " << type_support_traits<T>::type_name << ": ";
+    if (type_support_traits<T>::is_supported) {
+        std::cout << "✅ " << type_support_traits<T>::description << "\n";
+    } else {
+        std::cout << "❌ " << type_support_traits<T>::description << "\n";
+    }
+}
+
+// 使用traits测试所有类型支持
+bool testAllTypeSupportWithTraits() {
+    std::cout << "【Traits模板编程 - 类型支持测试】\n";
+    
+    // 测试FP8类型
+    std::cout << "FP8类型支持:\n";
+    testTypeSupportTraits<__nv_fp8_e4m3>();
+    testTypeSupportTraits<__nv_fp8_e5m2>();
+    
+    // 测试FP16类型
+    std::cout << "FP16类型支持:\n";
+    testTypeSupportTraits<__half>();
+    
+    // 测试BF16类型
+    std::cout << "BF16类型支持:\n";
+    testTypeSupportTraits<__nv_bfloat16>();
+    
+    // 测试INT8类型
+    std::cout << "INT8类型支持:\n";
+    testTypeSupportTraits<int8_t>();
+    
+    return true;
+}
+
+
+
+
 
 int main() {
     std::cout << "=== NVIDIA GPU 详细配置信息 ===\n\n";
@@ -215,6 +564,21 @@ int main() {
         }
         
         std::cout << "\n";
+        
+        // 测试FP8/INT8支持
+        testFP8Support(prop.major, prop.minor);
+        testINT8Support(prop.major, prop.minor);
+        testMixedPrecisionSupport(prop.major, prop.minor);
+        
+        // 高级traits检测
+        testFP16OperationsWithTraits();
+        
+        // Traits模板编程测试
+        testAllTypeSupportWithTraits();
+        
+
+        
+
         
         // 实际测试建议
         std::cout << "【实际测试建议】\n";

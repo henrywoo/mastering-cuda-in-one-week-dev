@@ -1,19 +1,6 @@
 # CUDA compiled binaries (exclude these)
 *.cubin
 
-# Executables (exclude these)
-# Exclude all files in day* folders, then include only source files
-day*/*
-!day*/*.cu
-!day*/*.cpp
-!day*/*.c
-!day*/*.h
-!day*/*.hpp
-!day*/*.md
-!day*/*.txt
-!day*/*.ptx
-!day*/*.cubin
-
 # Object files (exclude these)
 *.o
 *.obj

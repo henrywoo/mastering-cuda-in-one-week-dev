@@ -1,11 +1,15 @@
 # RTX 4090 GPU 配置总结
 
+[Nidia Ada GPU构架官方文档](day1/nvidia-ada-gpu-architecture.pdf) | [RTX4090快速安装手册链接](https://www.nvidia.com/content/geforce-gtx/GeForce_RTX_4090_QSG_Rev1.pdf)
+
 ## 基本信息
 - **GPU型号**: NVIDIA GeForce RTX 4090
 - **架构**: Ada Lovelace
 - **驱动版本**: 550.144.03
 - **CUDA版本**: 12.4
 - **计算能力**: 8.9 (基于架构推测)
+
+> 📋 **数据来源**: 本文档中的性能数据基于[NVIDIA Ada GPU架构官方文档](nvidia-ada-gpu-architecture.pdf)，确保信息的准确性和权威性。
 
 ## 硬件规格
 - **显存**: 24GB GDDR6X
@@ -50,9 +54,11 @@
 3. **内存带宽**: 理论峰值约1008 GB/s
 
 ### 计算优化
-1. **Tensor Core**: 支持FP16/BF16混合精度计算
-2. **RT Core**: 支持光线追踪加速
-3. **SM数量**: 预计68-72个SM (基于架构推测)
+1. **Tensor Core**: 支持FP16/BF16/FP8/INT8/TF32多种精度计算
+2. **FP8支持**: 第4代Tensor Core引入FP8格式，相比FP16存储需求减半，吞吐量翻倍
+3. **AI推理性能**: FP8精度下可达660.6/1321.2 TFLOPS (约0.66-1.32 PetaFLOPS)
+4. **RT Core**: 支持光线追踪加速
+5. **SM数量**: 预计68-72个SM (基于架构推测)
 
 ### 线程组织
 1. **Warp对齐**: 确保线程块大小是32的倍数
@@ -84,7 +90,7 @@ nvprof --metrics dram_write_throughput ./your_program
 ## 架构特性
 
 ### Ada Lovelace 优势
-- **第4代Tensor Core**: 支持更多数据类型和精度
+- **第4代Tensor Core**: 支持FP8/FP16/BF16/INT8/TF32多种精度，AI推理性能达660.6/1321.2 TFLOPS
 - **第3代RT Core**: 光线追踪性能提升
 - **DLSS 3.0**: AI超分辨率技术
 - **AV1编码**: 硬件视频编码支持
@@ -146,7 +152,8 @@ nvidia-smi stats
 
 ## 总结
 RTX 4090是一款强大的GPU，特别适合：
-- **深度学习**: 24GB显存 + Tensor Core
+- **深度学习**: 24GB显存 + 第4代Tensor Core (支持FP8/FP16/BF16/INT8/TF32)
+- **AI推理**: FP8精度下可达660.6/1321.2 TFLOPS (约0.66-1.32 PetaFLOPS)
 - **科学计算**: 高精度浮点运算
 - **图形渲染**: RT Core + DLSS 3.0
 - **CUDA开发**: 完整的CUDA 12.4支持
