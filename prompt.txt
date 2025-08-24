@@ -22,5 +22,5 @@
 Do not try to run nvcc or g++, let me run it by showing me the command. but you can run python. use conda env vllm-dev
 
 
-行文为叙述风格，娓娓道来，不要搞得像ChatGPT生成的
+行文为叙述风格，娓娓道来，让它更有叙述性和可读性。保持技术内容的准确性,不要搞得像ChatGPT生成的,让它更像是一个经验丰富的工程师在分享知识。
 
