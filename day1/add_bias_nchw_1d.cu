@@ -1,8 +1,8 @@
-// nvcc add_bias_nchw.cu -o deadd_bias_nchwmo && ./add_bias_nchw
+// nvcc add_bias_nchw_1d.cu -o add_bias_nchw_1d && ./add_bias_nchw_1d
 #include <cuda_runtime.h>
 #include <cstdio>
 
-__global__ void add_bias_nchw(const float* __restrict__ in,
+__global__ void add_bias_nchw_1d(const float* __restrict__ in,
                               float* __restrict__ out,
                               int N, int C, int H, int W,
                               float bias) {
@@ -53,7 +53,7 @@ int main() {
     numBlocks = min(numBlocks, 65535);
 
     float bias = 1.5f;
-    add_bias_nchw<<<numBlocks, threadsPerBlock>>>(d_in, d_out, N, C, H, W, bias);
+    add_bias_nchw_1d<<<numBlocks, threadsPerBlock>>>(d_in, d_out, N, C, H, W, bias);
     cudaDeviceSynchronize();
 
     cudaMemcpy(h_out, d_out, total * sizeof(float), cudaMemcpyDeviceToHost);

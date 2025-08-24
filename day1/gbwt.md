@@ -124,7 +124,7 @@ CUDA的Grid和Block只提供到三维的支持，那如果遇到高于三维的�
 其实也不难，就是手动映射一下. 就像演示代码[add_bias_nchw_1d.cu](add_bias_nchw_1d.cu)里面所展示的：我们有一个4D的张量（N=2, C=3, H=4, W=5），但数据在内存中是1D连续存储的。每个线程通过自己的线程ID（`tid`）来定位要处理的元素。
 
 ```cpp
-__global__ void add_bias_nchw(const float* __restrict__ in,
+__global__ void add_bias_nchw_1d(const float* __restrict__ in,
                               float* __restrict__ out,
                               int N, int C, int H, int W,
                               float bias) {
@@ -134,14 +134,14 @@ __global__ void add_bias_nchw(const float* __restrict__ in,
     for (long long tid = blockIdx.x * (long long)blockDim.x + threadIdx.x;
          tid < total;
          tid += (long long)blockDim.x * gridDim.x) {
-        // 将线性tid映射回(n,c,h,w)
+        // 将线性 tid 映射回 (n,c,h,w)
         int w = tid % W;
         long long t = tid / W;
         int h = t % H;
         t = t / H;
         int c = t % C;
         int n = t / C;
-        // 按NCHW连续内存计算线性下标
+        // 按 NCHW 连续内存计算线性下标
         long long idx = ((long long)n * C + c) * H * W + (long long)h * W + w;
         out[idx] = in[idx] + bias;
     }
@@ -207,6 +207,32 @@ kernel<<< gridDim, blockDim >>>( ... );
 #### 二维block
 
 ```cpp
+__global__ void add_bias_nchw_2d(const float* __restrict__ in,
+                                 float* __restrict__ out,
+                                 int N, int C, int H, int W,
+                                 float bias) {
+    // 使用2D block，每个线程处理一个元素
+    // threadIdx.x 对应 W 维度，threadIdx.y 对应 H 维度
+    int w = threadIdx.x;
+    int h = threadIdx.y;
+    // 计算当前block在grid中的位置
+    int block_w = blockIdx.x;
+    int block_h = blockIdx.y;
+    // 计算全局的W和H坐标
+    int global_w = block_w * blockDim.x + w;
+    int global_h = block_h * blockDim.y + h;
+    // 检查边界
+    if (global_w >= W || global_h >= H) return;
+    // 遍历N和C维度
+    for (int n = 0; n < N; ++n) {
+        for (int c = 0; c < C; ++c) {
+            // 计算1D内存索引
+            long long idx = ((long long)n * C + c) * H * W + (long long)global_h * W + global_w;
+            out[idx] = in[idx] + bias;
+        }
+    }
+}
+...
 dim3 threadsPerBlock(16, 16);   // blockDim.x=16, blockDim.y=16
 dim3 gridSize(1, 1);      // 因为H=4<16, W=5<16
 kernel<<<gridSize, threadsPerBlock>>>(...);
@@ -218,6 +244,35 @@ kernel<<<gridSize, threadsPerBlock>>>(...);
 #### 三维block
 
 ```cpp
+__global__ void add_bias_nchw_3d(const float* __restrict__ in,
+                                 float* __restrict__ out,
+                                 int N, int C, int H, int W,
+                                 float bias) {
+    // 使用3D block，每个线程处理一个元素
+    // threadIdx.x 对应 W 维度
+    // threadIdx.y 对应 H 维度  
+    // threadIdx.z 对应 C 维度
+    int w = threadIdx.x;
+    int h = threadIdx.y;
+    int c = threadIdx.z;
+    // 计算当前block在grid中的位置
+    int block_w = blockIdx.x;
+    int block_h = blockIdx.y;
+    int block_c = blockIdx.z;
+    // 计算全局的W、H、C坐标
+    int global_w = block_w * blockDim.x + w;
+    int global_h = block_h * blockDim.y + h;
+    int global_c = block_c * blockDim.z + c;
+    // 检查边界
+    if (global_w >= W || global_h >= H || global_c >= C) return;
+    // 遍历N维度
+    for (int n = 0; n < N; ++n) {
+        // 计算1D内存索引
+        long long idx = ((long long)n * C + global_c) * H * W + (long long)global_h * W + global_w;
+        out[idx] = in[idx] + bias;
+    }
+}
+...
 dim3 threadsPerBlock(8, 8, 4);   // blockDim=(8,8,4)=256
 dim3 gridSize(1, 1, 1);    // 因为W=5<8, H=4<8, C=3<4
 kernel<<<gridSize, threadsPerBlock>>>(...);
@@ -297,19 +352,14 @@ Warp 3 → [96]~[99] (不满32,有空线程)
 
 硬件以32个线程为一组（warp）执行。如果线程数不是32的倍数，最后那个不满32的warp里有些"空座位"，这些执行槽位也会被占用但不干活，效率会下降。
 
-## 总结
+## CUDA的编程模型总结
 
-让我总结一下今天聊的这些内容：
+让我总结一下这个小节的内容：
 
 1. **CUDA的编程模型**：Grid → Block → Thread，但硬件执行时是Grid → Block → Warp → Thread
-
-2. **维度设计**：Block和Grid都支持最多三维，这主要是为了代码的可读性和编程便利性
-
-3. **本质**：多维只是语法糖，硬件层面都是线性化的线程ID
-
-4. **Warp划分**：硬件按线性ID来分warp，即使是二维/三维block，warp仍然是32个线程为一组
-
-5. **实际应用**：选择Block大小时要考虑warp对齐，选择维度时要考虑数据结构的自然表达
+2. **维度设计**：Block和Grid都支持最多三维，这主要是为了代码的可读性和编程便利性. 其**本质**只是语法糖，硬件层面都是线性化的线程ID
+3. **Warp划分**：硬件按线性ID来分warp，即使是二维/三维block，warp仍然是32个线程为一组
+4. **实际应用**：选择Block大小时要考虑warp对齐，选择维度时要考虑数据结构的自然表达
 
 理解这些概念对于写出高效的CUDA代码很重要。虽然看起来有点复杂，但一旦理解了，你就能更好地控制GPU的执行方式，避免一些常见的性能陷阱。
 
