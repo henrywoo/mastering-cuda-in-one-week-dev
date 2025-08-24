@@ -128,7 +128,6 @@ int main() {
     int threadsPerBlock = 256;
     int blocksPerGrid = (n + threadsPerBlock - 1) / threadsPerBlock;
     vector_add<<<blocksPerGrid, threadsPerBlock>>>(d_a, d_b, d_c, n);
-    
     // ... 结果获取和清理 ...
 }
 ```
