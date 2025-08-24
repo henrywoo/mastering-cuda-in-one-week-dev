@@ -113,7 +113,7 @@ GPU的内存系统采用层次化设计，从访问速度最快到最慢依次�
 
 学习CUDA编程，最好的方式就是通过一个具体的例子来理解。让我们先看看一个完整的向量加法程序，感受一下CUDA代码是什么样子的：
 
-```cuda
+```cpp
 // 向量加法的CUDA kernel函数
 __global__ void vector_add(const float* a, const float* b, float* c, int n) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -121,7 +121,6 @@ __global__ void vector_add(const float* a, const float* b, float* c, int n) {
         c[idx] = a[idx] + b[idx];
     }
 }
-
 // 主机代码调用GPU kernel
 int main() {
     // ... 内存分配和数据准备 ...
