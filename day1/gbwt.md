@@ -1,6 +1,6 @@
-# CUDA编程模型：从抽象到现实
+# CUDA编程模型深入：从抽象到现实
 
-让我来聊聊CUDA的编程模型。当你刚开始接触CUDA时，可能会觉得这个概念有点抽象，但理解它对于写出高效的GPU代码至关重要。
+让我来深入聊聊CUDA的编程模型。当你刚开始接触CUDA时，可能会觉得这个概念有点抽象，但理解它对于写出高效的GPU代码至关重要。
 
 ## 编程模型的层次结构
 
@@ -119,7 +119,7 @@ int tid = threadIdx.x
 
 CUDA的Grid和Block只提供到三维的支持，那如果遇到高于三维的数据, 比如NCHW张量, 有4个维度，该怎么办呢？
 
-> NCHW是一个在标准卷积中使用的输入数据的格式(在PyTorch, Caffe和ONNX默认的数据格式)
+> NCHW是一个在标准卷积中使用的输入数据的格式(在PyTorch, Caffe和ONNX默认的数据格式)。参考[我的一篇小文](https://github.com/oracle/hiq/blob/main/hiq/wukong/wukong.pdf).
 
 其实也不难，就是手动映射一下. 就像演示代码[add_bias_nchw_1d.cu](add_bias_nchw_1d.cu)里面所展示的：我们有一个4D的张量（N=2, C=3, H=4, W=5），但数据在内存中是1D连续存储的。每个线程通过自己的线程ID（`tid`）来定位要处理的元素。
 
