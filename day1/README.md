@@ -199,7 +199,7 @@ int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
 这个公式就像给工厂里的每个工人分配工号一样。让我用一个更贴近生活的例子来解释：
 
-## 学校点名系统的启发
+### 学校点名系统的启发
 
 想象一下学校里的点名系统。假设学校有3个班级，每个班级有4个学生，要给全校学生编号，你会怎么设计？
 
@@ -613,13 +613,22 @@ Warp是GPU调度的基本单位，每个Warp包含32个线程，采用SIMT执行
 ## 📁 相关文件快速链接
 本教程包含以下相关程序文件，点击即可查看：
 
-### 🚀 示例程序
+### 🚀 基础示例程序
 - [`vector_add.cu`](vector_add.cu) - 向量加法CUDA kernel示例
 - [`vector_dot.cu`](vector_dot.cu) - 向量点积CUDA kernel示例
 - [`run_cubin.cpp`](run_cubin.cpp) - CUBIN文件运行程序（CUDA Driver API示例）
+
+### 🎯 NCHW张量处理示例（不同维度Block对比）
+- [`add_bias_nchw_1d.cu`](add_bias_nchw_1d.cu) - 1维Block版本，使用grid-stride loop处理4D张量
+- [`add_bias_nchw_2d.cu`](add_bias_nchw_2d.cu) - 2维Block版本，threadIdx.x/y直接映射W/H维度
+- [`add_bias_nchw_3d.cu`](add_bias_nchw_3d.cu) - 3维Block版本，threadIdx.x/y/z直接映射W/H/C维度
 
 ### 🔍 GPU信息获取工具
 - [`gpu_info.py`](gpu_info.py) - Python版本GPU信息获取（推荐）
 - [`gpu_info.cu`](gpu_info.cu) - CUDA版本完整硬件信息
 - [`gpu_info_cpp.cpp`](gpu_info_cpp.cpp) - C++版本系统信息检查
 - [`GPU_CONFIG_SUMMARY.md`](GPU_CONFIG_SUMMARY.md) - RTX 4090配置总结
+
+### 📚 教程文档
+- [`gbwt.md`](gbwt.md) - CUDA编程模型详解：Grid、Block、Thread、Warp的关系
+- [`env.md`](env.md) - CUDA开发环境配置指南
