@@ -81,7 +81,7 @@ GPU（图形处理器）则采用并行执行架构，配备大量相对简单�
 每个SM内部采用细粒度的并行设计。在SM的顶层，多个Warp并行执行，这些Warp共享SM的计算资源。
 
 > **Warp概念详解**：
-Warp是GPU调度的基本单位，每个Warp包含32个线程。Warp采用SIMT（Single Instruction, Multiple Thread）执行模型，即同一Warp内的所有线程执行相同的指令，但处理不同的数据。这种设计使得GPU能够高效地利用数据并行性，当多个线程需要执行相同操作时，只需要一条指令就能控制32个线程同时执行。**🎯重要说明**: Warp大小32是NVIDIA GPU架构的固定设计，从最早的Tesla架构到最新的Blackwell架构都保持不变。32这个数字是经过精心设计以便能够充分利用GPU的SIMT执行单元.
+Warp是GPU调度的基本单位，每个Warp包含32个线程。Warp采用SIMT（Single Instruction, Multiple Thread）执行模型，即同一Warp内的所有线程执行相同的指令，但处理不同的数据。这种设计使得GPU能够高效地利用数据并行性，当多个线程需要执行相同操作时，只需要一条指令就能控制32个线程同时执行。**🎯注意**: Warp大小32是NVIDIA GPU架构的固定设计，从最早的Tesla架构到最新的Blackwell架构都保持不变。32这个数字是经过精心设计以便能够充分利用GPU的SIMT执行单元.
 
 在Warp层之下，SM配备了三种关键的内存资源：寄存器文件（Register File）、共享内存（Shared Memory）和L1缓存。寄存器文件为每个线程提供最快的存储访问，共享内存支持线程块内的数据交换和协作，L1缓存则提供额外的数据缓存层。在SM的最底层，配置了各种专用功能单元，包括FP32、FP64浮点运算单元、整数运算单元以及Tensor Core等专用加速器。
 
@@ -228,6 +228,7 @@ int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
 这样，每个线程就能知道自己应该处理数组中的哪个元素了。通过这种巧妙的索引设计，GPU能够高效地分配工作，让每个线程都有明确的任务，从而实现真正的并行计算。
 
+> 🎯注意: 这里的idx计算只显式用了x维度，没有用到y和z维度，因为Grid和Block都是1维的.这个时候1维写法kernel<<< numBlocks, threadsPerBlock >>>(参数...)等价于3维写法（y和z都是1）kernel<<< dim3(numBlocks, 1, 1), dim3(threadsPerBlock, 1, 1) >>>(参数...). 详细情况参考[CUDA编程模型深入：从抽象到现实](gbwt.md).
 
 ## 代码解析
 
