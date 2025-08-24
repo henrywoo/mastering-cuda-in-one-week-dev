@@ -351,7 +351,7 @@ public:
 
 ### 编译命令
 ```bash
-nvcc -O3 -arch=sm_70 -lcublas -o transformer transformer.cu
+nvcc -O3 -lcublas -o transformer transformer.cu
 ```
 
 ### 运行命令

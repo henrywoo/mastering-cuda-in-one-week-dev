@@ -11,7 +11,7 @@ LIB_FLAGS="-L$CUDA_PATH/lib64"
 
 # 编译Flash Attention
 echo "编译 Flash Attention..."
-$NVCC $INCLUDE_FLAGS $LIB_FLAGS -O3 -arch=sm_70 -o flash_attention flash_attention.cu
+$NVCC $INCLUDE_FLAGS $LIB_FLAGS -O3 -o flash_attention flash_attention.cu
 if [ $? -eq 0 ]; then
     echo "✓ Flash Attention 编译成功"
 else
@@ -21,7 +21,7 @@ echo ""
 
 # 编译Grouped Query Attention
 echo "编译 Grouped Query Attention..."
-$NVCC $INCLUDE_FLAGS $LIB_FLAGS -O3 -arch=sm_70 -o grouped_query_attention grouped_query_attention.cu
+$NVCC $INCLUDE_FLAGS $LIB_FLAGS -O3 -o grouped_query_attention grouped_query_attention.cu
 if [ $? -eq 0 ]; then
     echo "✓ Grouped Query Attention 编译成功"
 else
@@ -31,7 +31,7 @@ echo ""
 
 # 编译Mixed Precision Attention
 echo "编译 Mixed Precision Attention..."
-$NVCC $INCLUDE_FLAGS $LIB_FLAGS -O3 -arch=sm_70 -o mixed_precision_attention mixed_precision_attention.cu
+$NVCC $INCLUDE_FLAGS $LIB_FLAGS -O3 -o mixed_precision_attention mixed_precision_attention.cu
 if [ $? -eq 0 ]; then
     echo "✓ Mixed Precision Attention 编译成功"
 else
@@ -41,7 +41,7 @@ echo ""
 
 # 编译Sparse Attention
 echo "编译 Sparse Attention..."
-$NVCC $INCLUDE_FLAGS $LIB_FLAGS -O3 -arch=sm_70 -o sparse_attention sparse_attention.cu
+$NVCC $INCLUDE_FLAGS $LIB_FLAGS -O3 -o sparse_attention sparse_attention.cu
 if [ $? -eq 0 ]; then
     echo "✓ Sparse Attention 编译成功"
 else

@@ -313,13 +313,13 @@ nvprof --metrics all ./matrix_mul
 ### 编译命令
 ```bash
 # 基础版本
-nvcc -O3 -arch=sm_70 -o matrix_mul matrix_mul.cu
+nvcc -O3 -o matrix_mul matrix_mul.cu
 
 # 链接cuBLAS
-nvcc -O3 -arch=sm_70 -lcublas -o matrix_mul_cublas matrix_mul.cu
+nvcc -O3 -lcublas -o matrix_mul_cublas matrix_mul.cu
 
 # 链接CUTLASS
-nvcc -O3 -arch=sm_70 -I/path/to/cutlass/include -o matrix_mul_cutlass matrix_mul.cu
+nvcc -O3 -I/path/to/cutlass/include -o matrix_mul_cutlass matrix_mul.cu
 ```
 
 ### 运行命令

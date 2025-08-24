@@ -143,7 +143,7 @@ __global__ void flashAttentionKernel(float *Q, float *K, float *V, float *output
 **编译和运行:**
 ```bash
 # 编译
-nvcc -O3 -arch=sm_70 -o flash_attention flash_attention.cu
+nvcc -O3 -o flash_attention flash_attention.cu
 
 # 运行
 ./flash_attention
@@ -215,7 +215,7 @@ __global__ void groupedQueryAttentionKernel(float *Q, float *K, float *V, float 
 **编译和运行:**
 ```bash
 # 编译
-nvcc -O3 -arch=sm_70 -o grouped_query_attention grouped_query_attention.cu
+nvcc -O3 -o grouped_query_attention grouped_query_attention.cu
 
 # 运行
 ./grouped_query_attention
@@ -283,7 +283,7 @@ __global__ void mixedPrecisionAttentionKernel(half *Q, half *K, half *V,
 **编译和运行:**
 ```bash
 # 编译 (需要支持half精度的GPU)
-nvcc -O3 -arch=sm_70 -o mixed_precision_attention mixed_precision_attention.cu
+nvcc -O3 -o mixed_precision_attention mixed_precision_attention.cu
 
 # 运行
 ./mixed_precision_attention
@@ -374,7 +374,7 @@ __global__ void sparseAttentionKernel(float *Q, float *K, float *V, float *outpu
 **编译和运行:**
 ```bash
 # 编译
-nvcc -O3 -arch=sm_70 -o sparse_attention sparse_attention.cu
+nvcc -O3 -o sparse_attention sparse_attention.cu
 
 # 运行
 ./sparse_attention
@@ -446,13 +446,13 @@ __global__ void mixedPrecisionAttentionKernel(half *Q, half *K, half *V,
 
 ```bash
 # RTX 30系列 (Ampere)
-nvcc -O3 -arch=sm_86 -o flash_attention flash_attention.cu
+nvcc -O3 -o flash_attention flash_attention.cu
 
 # RTX 40系列 (Ada Lovelace)  
-nvcc -O3 -arch=sm_89 -o flash_attention flash_attention.cu
+nvcc -O3 -o flash_attention flash_attention.cu
 
 # H100/H200 (Hopper)
-nvcc -O3 -arch=sm_90a -o flash_attention flash_attention.cu
+nvcc -O3 -o flash_attention flash_attention.cu
 ```
 
 ## 性能优化策略
@@ -477,10 +477,10 @@ nvcc -O3 -arch=sm_90a -o flash_attention flash_attention.cu
 ### 编译命令
 ```bash
 # 针对最新架构编译
-nvcc -O3 -arch=sm_90a -o llm_optimization llm_optimization.cu
+nvcc -O3 -o llm_optimization llm_optimization.cu
 
 # 启用Tensor Core
-nvcc -O3 -arch=sm_90a -lcublas -o llm_optimization llm_optimization.cu
+nvcc -O3 -lcublas -o llm_optimization llm_optimization.cu
 ```
 
 ### 运行命令

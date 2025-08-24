@@ -490,16 +490,16 @@ __global__ void computeOptimizedKernel(float *data, int n) {
 ### 1. 编译器标志
 ```bash
 # 优化标志
-nvcc -O3 -arch=sm_70 -Xptxas -O3,-v your_program.cu
+nvcc -O3 -Xptxas -O3,-v your_program.cu
 
 # 特定架构优化
-nvcc -arch=sm_80 -code=sm_80 your_program.cu
+nvcc -code=sm_80 your_program.cu
 
 # 调试信息
 nvcc -g -G your_program.cu
 
 # Blackwell架构优化
-nvcc -arch=sm_90a -o blackwell_optimized your_program.cu
+nvcc -o blackwell_optimized your_program.cu
 ```
 
 ### 2. 内联优化
@@ -537,13 +537,13 @@ __forceinline__ __device__ float fastSqrt(float x) {
 ### 编译命令
 ```bash
 # 基础版本
-nvcc -O3 -arch=sm_70 -o performance_tuning performance_tuning.cu
+nvcc -O3 -o performance_tuning performance_tuning.cu
 
 # 针对特定架构优化
-nvcc -O3 -arch=sm_90a -o blackwell_tuning performance_tuning.cu
+nvcc -O3 -o blackwell_tuning performance_tuning.cu
 
 # 启用所有优化
-nvcc -O3 -arch=sm_90a -Xptxas -O3,-v -lcublas -o full_optimized performance_tuning.cu
+nvcc -O3 -Xptxas -O3,-v -lcublas -o full_optimized performance_tuning.cu
 ```
 
 ### 运行命令

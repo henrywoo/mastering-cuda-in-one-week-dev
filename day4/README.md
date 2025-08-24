@@ -449,13 +449,13 @@ void forwardPass(float *input, float *output, ConvLayer *layer) {
 ### 编译命令
 ```bash
 # 基础版本
-nvcc -O3 -arch=sm_70 -o cnn_conv cnn_conv.cu
+nvcc -O3 -o cnn_conv cnn_conv.cu
 
 # 链接cuDNN
-nvcc -O3 -arch=sm_70 -lcudnn -o cnn_conv_cudnn cnn_conv.cu
+nvcc -O3 -lcudnn -o cnn_conv_cudnn cnn_conv.cu
 
 # 链接cuBLAS (用于矩阵乘法)
-nvcc -O3 -arch=sm_70 -lcudnn -lcublas -o cnn_conv_full cnn_conv.cu
+nvcc -O3 -lcudnn -lcublas -o cnn_conv_full cnn_conv.cu
 ```
 
 ### 运行命令

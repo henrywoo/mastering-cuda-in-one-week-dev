@@ -27,47 +27,47 @@
 - **学习目标**: 理解CUDA编程模型，掌握GPU硬件架构和内存层次结构
 - **核心概念**: 线程层次结构、Warp执行特性、内存管理、动态kernel加载
 - **实践项目**: 向量加法、向量点积、GPU配置工具、CUBIN文件运行
-- **文件**: [day1/README.md](day1/README.md), [day1/vector_add.cu](day1/vector_add.cu), [day1/vector_dot.cu](day1/vector_dot.cu), [day1/run_cubin.cpp](day1/run_cubin.cpp), [day1/gpu_info.py](day1/gpu_info.py), [day1/GPU_CONFIG_SUMMARY.md](day1/GPU_CONFIG_SUMMARY.md)
+
 
 ### Day 2: CUDA调试与优化 - PTX加载与性能分析
 - **学习目标**: 理解CUDA编译流程，掌握Driver API，学会调试和性能优化
 - **核心概念**: PTX、CUBIN、CUDA上下文、性能分析工具、优化策略
 - **实践项目**: 手动加载和执行PTX代码、性能分析和优化实战
-- **文件**: [day2/README.md](day2/README.md), [day2/run_ptx_manual.cu](day2/run_ptx_manual.cu)
+
 
 ### Day 3: 矩阵乘法优化 - CUDA性能调优实战
 - **学习目标**: 掌握矩阵乘法的CUDA实现和优化
 - **核心概念**: 共享内存、内存合并访问、CUDA流
 - **NVIDIA库**: cuBLAS、CUTLASS介绍和使用
 - **实践项目**: 多种优化版本的矩阵乘法
-- **文件**: [day3/README.md](day3/README.md), [day3/matrix_mul.cu](day3/matrix_mul.cu), [day3/matrix_mul_optimized.cu](day3/matrix_mul_optimized.cu), [day3/matrix_mul_cublas.cu](day3/matrix_mul_cublas.cu), [day3/matrix_mul_cutlass.cu](day3/matrix_mul_cutlass.cu)
+
 
 ### Day 4: 卷积神经网络(CNN) - CUDA深度学习实战
 - **学习目标**: 实现CNN核心操作，理解卷积优化
 - **核心概念**: 2D卷积、共享内存优化、分离卷积
 - **NVIDIA库**: cuDNN库介绍和性能对比
 - **实践项目**: 多种卷积算法的CUDA实现
-- **文件**: [day4/README.md](day4/README.md), [day4/cnn_conv.cu](day4/cnn_conv.cu), [day4/cnn_conv_optimized.cu](day4/cnn_conv_optimized.cu), [day4/cnn_conv_cudnn.cu](day4/cnn_conv_cudnn.cu), [day4/cnn_forward.cu](day4/cnn_forward.cu)
+
 
 ### Day 5: 注意力机制和Transformer - 现代NLP的CUDA实现
 - **学习目标**: 掌握注意力机制和Transformer架构
 - **核心概念**: 自注意力、多头注意力、位置编码
 - **实践项目**: 完整的Transformer实现
-- **文件**: [day5/README.md](day5/README.md), [day5/self_attention.cu](day5/self_attention.cu), [day5/multi_head_attention.cu](day5/multi_head_attention.cu), [day5/transformer_block.cu](day5/transformer_block.cu), [day5/transformer.cu](day5/transformer.cu)
+
 
 ### Day 6: 最新LLM CUDA Kernel定制优化 - 前沿技术实战
 - **学习目标**: 掌握最新的LLM优化技术
 - **核心概念**: Flash Attention、Paged Attention、Grouped Query Attention
 - **前沿技术**: 稀疏注意力、最新Tensor Core优化
 - **实践项目**: 多种注意力优化算法的实现
-- **文件**: [day6/README.md](day6/README.md), [day6/flash_attention.cu](day6/flash_attention.cu), [day6/paged_attention.cu](day6/paged_attention.cu), [day6/grouped_query_attention.cu](day6/grouped_query_attention.cu), [day6/sparse_attention.cu](day6/sparse_attention.cu), [day6/mixed_precision_attention.cu](day6/mixed_precision_attention.cu)
+
 
 ### Day 7: CUDA性能调优高级技巧 - 从理论到实践
 - **学习目标**: 掌握高级性能调优技巧
 - **核心概念**: 内存层次优化、指令级优化、架构特定优化
 - **GPU架构**: 不同架构特性对比，包括最新的Blackwell架构
 - **实践项目**: 性能分析和优化实战
-- **文件**: [day7/README.md](day7/README.md), [day7/performance_tuning.cu](day7/performance_tuning.cu), [day7/blackwell_tuning.cu](day7/blackwell_tuning.cu), [day7/memory_optimization.cu](day7/memory_optimization.cu), [day7/instruction_optimization.cu](day7/instruction_optimization.cu)
+
 
 
 ## 🎯 一周学习总结

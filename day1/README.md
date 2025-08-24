@@ -326,7 +326,7 @@ g++ -o gpu_info_cpp gpu_info_cpp.cpp
 ./gpu_info_cpp
 
 # CUDA版本（完整硬件信息，需要编译）
-nvcc -arch=sm_89 -O3 -o gpu_info gpu_info.cu
+nvcc -O3 -o gpu_info gpu_info.cu
 ./gpu_info
 ```
 
@@ -371,13 +371,13 @@ c[2] = 3
 **CUBIN文件的生成过程：**
 ```bash
 # 从CUDA源码(.cu)生成PTX中间文件
-nvcc -ptx -arch=sm_89 -o vector_add.ptx vector_add.cu
+nvcc -ptx -o vector_add.ptx vector_add.cu
 
 # 从PTX生成CUBIN二进制文件  
-nvcc -cubin -arch=sm_89 -o vector_add.cubin vector_add.ptx
+nvcc -cubin -o vector_add.cubin vector_add.ptx
 
 # 或者直接从源码一步生成CUBIN
-nvcc -cubin -arch=sm_89 -o vector_add.cubin vector_add.cu
+nvcc -cubin -o vector_add.cubin vector_add.cu
 ```
 
 #### 什么是动态Kernel加载？
@@ -391,9 +391,9 @@ nvcc -cubin -arch=sm_89 -o vector_add.cubin vector_add.cu
 # 1. 生成向量加法kernel的CUBIN文件
 nvcc -cubin -arch=sm_89 -o vector_add.cubin vector_add.cu
 # 2. 生成向量点积kernel的CUBIN文件  
-nvcc -cubin -arch=sm_89 -o vector_dot.cubin vector_dot.cu
+nvcc -cubin -o vector_dot.cubin vector_dot.cu
 # 3. 编译动态加载程序
-nvcc -arch=sm_89 run_cubin.cpp -lcuda -o run_cubin
+nvcc run_cubin.cpp -lcuda -o run_cubin
 # 4. 运行时选择不同的kernel
 ./run_cubin vector_add.cubin    # 执行向量加法: [1,2,3] + [2,2,2] = [3,4,5]
 ./run_cubin vector_dot.cubin    # 执行向量点积: [1,2,3] · [2,2,2] = 12
