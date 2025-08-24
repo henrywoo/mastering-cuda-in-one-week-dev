@@ -124,7 +124,6 @@ __global__ void vector_add(const float* a, const float* b, float* c, int n) {
 // 主机代码调用GPU kernel
 int main() {
     // ... 内存分配和数据准备 ...
-    
     // 启动kernel，配置线程网格
     int threadsPerBlock = 256;
     int blocksPerGrid = (n + threadsPerBlock - 1) / threadsPerBlock;
