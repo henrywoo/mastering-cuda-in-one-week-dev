@@ -130,7 +130,7 @@ __global__ void add_bias_nchw_1d(const float* __restrict__ in,
                               float bias) {
     // 总元素个数
     const long long total = (long long)N * C * H * W;
-    // grid-stride loop：让任意网格规模都能覆盖任意大小的张量
+    // grid-stride loop：每次跳跃一个Grid的步长,让任意网格规模都能覆盖任意大小的张量!
     for (long long tid = blockIdx.x * (long long)blockDim.x + threadIdx.x;
          tid < total;
          tid += (long long)blockDim.x * gridDim.x) {
